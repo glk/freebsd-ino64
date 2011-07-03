@@ -367,6 +367,7 @@ struct isoreaddir {
 	off_t curroff;
 	struct uio *uio;
 	off_t uio_off;
+	ssize_t startresid;
 	int eofflag;
 };
 
@@ -384,6 +385,8 @@ iso_uiodir(idp,dp,off)
 
 	if (idp->uio->uio_resid < dp->d_reclen) {
 		idp->eofflag = 0;
+		if (idp->uio->uio_resid == idp->startresid)
+			return (EINVAL);
 		return (-1);
 	}
 
@@ -486,6 +489,7 @@ cd9660_readdir(ap)
 	idp->eofflag = 1;
 	idp->curroff = uio->uio_offset;
 	idp->uio_off = uio->uio_offset;
+	idp->startresid = uio->uio_resid;
 
 	if ((entryoffsetinblock = idp->curroff & bmask) &&
 	    (error = cd9660_blkatoff(vdp, (off_t)idp->curroff, NULL, &bp))) {

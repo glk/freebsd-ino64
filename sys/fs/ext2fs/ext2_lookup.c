@@ -201,15 +201,17 @@ ext2_readdir(ap)
 			dstdp.d_reclen = GENERIC_DIRSIZ(&dstdp);
 			dstdp.d_off = offset + dp->e2d_reclen;
 			bcopy(dp->e2d_name, dstdp.d_name, dstdp.d_namlen);
-			bzero(dstdp.d_name + dstdp.d_namlen,
-			    dstdp.d_reclen - offsetof(struct dirent, d_name) -
-			    dstdp.d_namlen);
+			dstdp.d_name[dstdp.d_namlen] = '\0';
 
 			if (dp->e2d_reclen > 0) {
 				error = vfs_read_dirent(ap, &dstdp);
 				if (error != 0) {
-					if (error < 0)
-						error = 0;
+					if (error < 0) {
+						if (offset == startoffset)
+							error = EINVAL;
+						else
+							error = 0;
+					}
 					break;
 				}
 				/* advance dp */

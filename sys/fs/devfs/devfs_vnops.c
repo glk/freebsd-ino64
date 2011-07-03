@@ -1188,6 +1188,7 @@ devfs_readdir(struct vop_readdir_args *ap)
 	struct devfs_dirent *de;
 	struct devfs_mount *dmp;
 	off_t off;
+	ssize_t startresid;
 
 	if (ap->a_vp->v_type != VDIR)
 		return (ENOTDIR);
@@ -1202,6 +1203,7 @@ devfs_readdir(struct vop_readdir_args *ap)
 	error = 0;
 	de = ap->a_vp->v_data;
 	off = 0;
+	startresid = uio->uio_resid;
 	TAILQ_FOREACH(dd, &de->de_dlist, de_list) {
 		KASSERT(dd->de_cdp != (void *)0xdeadc0de, ("%s %d\n", __func__, __LINE__));
 		if (dd->de_flags & (DE_COVERED | DE_WHITEOUT))
@@ -1218,8 +1220,12 @@ devfs_readdir(struct vop_readdir_args *ap)
 		if (off >= uio->uio_offset) {
 			error = vfs_read_dirent(ap, dp);
 			if (error != 0) {
-				if (error < 0)
-					error = 0;
+				if (error < 0) {
+					if (uio->uio_resid == startresid)
+						error = EINVAL;
+					else
+						error = 0;
+				}
 				break;
 			}
 		}

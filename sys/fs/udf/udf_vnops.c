@@ -744,6 +744,7 @@ udf_readdir(struct vop_readdir_args *a)
 	struct udf_mnt *udfmp;
 	struct fileid_desc *fid;
 	struct udf_dirstream *ds;
+	ssize_t startresid;
 	int error = 0;
 	int dotoff = 0;
 
@@ -755,6 +756,7 @@ udf_readdir(struct vop_readdir_args *a)
 	if (a->a_eofflag != NULL)
 		*a->a_eofflag = 1;	/* reset by vfs_read_dirent */
 
+	startresid = uio->uio_resid;
 	if (uio->uio_offset == 1 || uio->uio_offset == 2) {
 		dotoff = uio->uio_offset;
 		uio->uio_offset = 0;
@@ -826,8 +828,12 @@ udf_readdir(struct vop_readdir_args *a)
 		uio->uio_offset = dir.d_off;
 	}
 
-	if (error < 0)
-		error = 0;
+	if (error < 0) {
+		if (uio->uio_resid == startresid)
+			error = EINVAL;
+		else
+			error = 0;
+	}
 	if (!error)
 		error = ds->error;
 
