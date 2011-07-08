@@ -1763,8 +1763,8 @@ nfsrv_putreferralattr(struct nfsrv_descript *nd, nfsattrbit_t *retbitp,
 			break;
 		case NFSATTRBIT_MOUNTEDONFILEID:
 			NFSM_BUILD(tl, u_int32_t *, NFSX_HYPER);
-			*tl++ = 0;
-			*tl = txdr_unsigned(refp->nfr_dfileno);
+			txdr_hyper(refp->nfr_dfileno, tl);
+			tl += 2;
 			retnum += NFSX_HYPER;
 			break;
 		default:

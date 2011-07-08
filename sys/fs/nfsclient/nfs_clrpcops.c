@@ -2634,6 +2634,7 @@ nfsrpc_readdir(vnode_t vp, struct uio *uiop, nfsuint64 *cookiep,
 			dp->d_name[0] = '.';
 			dp->d_name[1] = '\0';
 			dp->d_reclen = DIRENT_SIZE(dp) + NFSX_HYPER;
+			dp->d_off = 0;
 			/*
 			 * Just make these offset cookie 0.
 			 */
@@ -2653,6 +2654,7 @@ nfsrpc_readdir(vnode_t vp, struct uio *uiop, nfsuint64 *cookiep,
 			dp->d_name[1] = '.';
 			dp->d_name[2] = '\0';
 			dp->d_reclen = DIRENT_SIZE(dp) + NFSX_HYPER;
+			dp->d_off = 0;
 			/*
 			 * Just make these offset cookie 0.
 			 */
@@ -2763,6 +2765,7 @@ nfsrpc_readdir(vnode_t vp, struct uio *uiop, nfsuint64 *cookiep,
 				uio_iov_len_add(uiop, -(left));
 				uio_uio_resid_add(uiop, -(left));
 				uiop->uio_offset += left;
+				dp->d_off = uiop->uio_offset;
 				blksiz = 0;
 			}
 			if ((int)(tlen + DIRHDSIZ + NFSX_HYPER) > uio_uio_resid(uiop))
@@ -2791,6 +2794,7 @@ nfsrpc_readdir(vnode_t vp, struct uio *uiop, nfsuint64 *cookiep,
 				uio_iov_len_add(uiop, -(tlen + NFSX_HYPER));
 				uio_uio_resid_add(uiop, -(tlen + NFSX_HYPER));
 				uiop->uio_offset += (tlen + NFSX_HYPER);
+				dp->d_off = uiop->uio_offset;
 			} else {
 				error = nfsm_advance(nd, NFSM_RNDUP(len), -1);
 				if (error)
@@ -2877,6 +2881,7 @@ nfsrpc_readdir(vnode_t vp, struct uio *uiop, nfsuint64 *cookiep,
 		uio_iov_len_add(uiop, -(left));
 		uio_uio_resid_add(uiop, -(left));
 		uiop->uio_offset += left;
+		dp->d_off = uiop->uio_offset;
 	}
 
 	/*
@@ -2901,6 +2906,7 @@ nfsrpc_readdir(vnode_t vp, struct uio *uiop, nfsuint64 *cookiep,
 		dp = (struct dirent *) CAST_DOWN(caddr_t, uio_iov_base(uiop));
 		dp->d_type = DT_UNKNOWN;
 		dp->d_fileno = 0;
+		dp->d_off = 0;
 		dp->d_namlen = 0;
 		dp->d_name[0] = '\0';
 		tl = (u_int32_t *)&dp->d_name[4];

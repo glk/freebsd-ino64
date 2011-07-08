@@ -2367,13 +2367,14 @@ nfs_readdirrpc(struct vnode *vp, struct uio *uiop, struct ucred *cred)
 				uiop->uio_iov->iov_len -= left;
 				uiop->uio_offset += left;
 				uiop->uio_resid -= left;
+				dp->d_off = uiop->uio_offset;
 				blksiz = 0;
 			}
 			if ((tlen + DIRHDSIZ) > uiop->uio_resid)
 				bigenough = 0;
 			if (bigenough) {
 				dp = (struct dirent *)uiop->uio_iov->iov_base;
-				dp->d_fileno = (int)fileno;
+				dp->d_fileno = fileno;
 				dp->d_namlen = len;
 				dp->d_reclen = tlen + DIRHDSIZ;
 				dp->d_type = DT_UNKNOWN;
@@ -2394,6 +2395,7 @@ nfs_readdirrpc(struct vnode *vp, struct uio *uiop, struct ucred *cred)
 				uiop->uio_iov->iov_len -= tlen;
 				uiop->uio_offset += tlen;
 				uiop->uio_resid -= tlen;
+				dp->d_off = uiop->uio_offset;
 			} else
 				nfsm_adv(nfsm_rndup(len));
 			if (v3) {
@@ -2434,6 +2436,7 @@ nfs_readdirrpc(struct vnode *vp, struct uio *uiop, struct ucred *cred)
 		uiop->uio_iov->iov_len -= left;
 		uiop->uio_offset += left;
 		uiop->uio_resid -= left;
+		dp->d_off = uiop->uio_offset;
 	}
 
 	/*
@@ -2561,7 +2564,7 @@ nfs_readdirplusrpc(struct vnode *vp, struct uio *uiop, struct ucred *cred)
 				bigenough = 0;
 			if (bigenough) {
 				dp = (struct dirent *)uiop->uio_iov->iov_base;
-				dp->d_fileno = (int)fileno;
+				dp->d_fileno = fileno;
 				dp->d_namlen = len;
 				dp->d_reclen = tlen + DIRHDSIZ;
 				dp->d_type = DT_UNKNOWN;

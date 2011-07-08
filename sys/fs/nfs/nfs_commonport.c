@@ -335,7 +335,7 @@ nfsvno_pathconf(struct vnode *vp, int flag, register_t *retf,
 
 /* Fake nfsrv_atroot. Just return 0 */
 int
-nfsrv_atroot(struct vnode *vp, long *retp)
+nfsrv_atroot(struct vnode *vp, ino_t *retp)
 {
 
 	return (0);
@@ -416,7 +416,7 @@ nfs_catnap(int prio, int errval, const char *wmesg)
  * Get referral. For now, just fail.
  */
 struct nfsreferral *
-nfsv4root_getreferral(struct vnode *vp, struct vnode *dvp, u_int32_t fileno)
+nfsv4root_getreferral(struct vnode *vp, struct vnode *dvp, u_int64_t fileno)
 {
 
 	return (NULL);

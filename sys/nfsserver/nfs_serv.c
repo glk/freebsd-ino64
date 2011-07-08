@@ -2736,11 +2736,10 @@ nfsrv_readdir(struct nfsrv_descript *nfsd, struct nfssvc_sock *slp,
 	struct uio io;
 	struct iovec iv;
 	int len, nlen, rem, xfer, tsiz, i, error = 0, getret = 1;
-	int siz, cnt, fullsiz, eofflag, rdonly, ncookies;
+	int siz, cnt, fullsiz, eofflag, rdonly;
 	int v3 = (nfsd->nd_flag & ND_NFSV3);
 	u_quad_t off, toff, verf;
-	u_long *cookies = NULL, *cookiep; /* needs to be int64_t or off_t */
-	int vfslocked, not_zfs;
+	int vfslocked;
 
 	nfsdbprintf(("%s %d\n", __FILE__, __LINE__));
 	vfslocked = 0;
@@ -2804,14 +2803,12 @@ nfsrv_readdir(struct nfsrv_descript *nfsd, struct nfssvc_sock *slp,
 		error = 0;
 		goto nfsmout;
 	}
-	not_zfs = strcmp(vp->v_mount->mnt_vfc->vfc_name, "zfs") != 0;
 	VOP_UNLOCK(vp, 0);
 
 	/*
 	 * end section.  Allocate rbuf and continue
 	 */
 	rbuf = malloc(siz, M_TEMP, M_WAITOK);
-again:
 	iv.iov_base = rbuf;
 	iv.iov_len = fullsiz;
 	io.uio_iov = &iv;
@@ -2822,15 +2819,9 @@ again:
 	io.uio_rw = UIO_READ;
 	io.uio_td = NULL;
 	eofflag = 0;
-	if (cookies) {
-		free((caddr_t)cookies, M_TEMP);
-		cookies = NULL;
-	}
 	vn_lock(vp, LK_SHARED | LK_RETRY);
-	error = VOP_READDIR(vp, &io, cred, &eofflag, &ncookies, &cookies);
+	error = VOP_READDIR(vp, &io, cred, &eofflag);
 	off = (off_t)io.uio_offset;
-	if (!cookies && !error)
-		error = NFSERR_PERM;
 	if (v3) {
 		getret = VOP_GETATTR(vp, &at, cred);
 		if (!error)
@@ -2841,8 +2832,6 @@ again:
 		vrele(vp);
 		vp = NULL;
 		free((caddr_t)rbuf, M_TEMP);
-		if (cookies)
-			free((caddr_t)cookies, M_TEMP);
 		nfsm_reply(NFSX_POSTOPATTR(v3));
 		if (v3)
 			nfsm_srvpostop_attr(getret, &at);
@@ -2871,7 +2860,6 @@ again:
 			*tl++ = nfsrv_nfs_false;
 			*tl = nfsrv_nfs_true;
 			free((caddr_t)rbuf, M_TEMP);
-			free((caddr_t)cookies, M_TEMP);
 			error = 0;
 			goto nfsmout;
 		}
@@ -2884,29 +2872,6 @@ again:
 	cpos = rbuf;
 	cend = rbuf + siz;
 	dp = (struct dirent *)cpos;
-	cookiep = cookies;
-	/*
-	 * For some reason FreeBSD's ufs_readdir() chooses to back the
-	 * directory offset up to a block boundary, so it is necessary to
-	 * skip over the records that precede the requested offset. This
-	 * requires the assumption that file offset cookies monotonically
-	 * increase.
-	 * Since the offset cookies don't monotonically increase for ZFS,
-	 * this is not done when ZFS is the file system.
-	 */
-	while (cpos < cend && ncookies > 0 &&
-		(dp->d_fileno == 0 || dp->d_type == DT_WHT ||
-		 (not_zfs != 0 && ((u_quad_t)(*cookiep)) <= toff))) {
-		cpos += dp->d_reclen;
-		dp = (struct dirent *)cpos;
-		cookiep++;
-		ncookies--;
-	}
-	if (cpos >= cend || ncookies == 0) {
-		toff = off;
-		siz = fullsiz;
-		goto again;
-	}
 
 	len = 3 * NFSX_UNSIGNED;	/* paranoia, probably can be 0 */
 	nfsm_reply(NFSX_POSTOPATTR(v3) + NFSX_COOKIEVERF(v3) + siz);
@@ -2920,7 +2885,7 @@ again:
 	be = bp + M_TRAILINGSPACE(mp);
 
 	/* Loop through the records and build reply */
-	while (cpos < cend && ncookies > 0) {
+	while (cpos < cend) {
 		if (dp->d_fileno != 0 && dp->d_type != DT_WHT) {
 			nlen = dp->d_namlen;
 			rem = nfsm_rndup(nlen) - nlen;
@@ -2938,14 +2903,14 @@ again:
 			nfsm_clget;
 			*tl = nfsrv_nfs_true;
 			bp += NFSX_UNSIGNED;
+			nfsm_clget;
 			if (v3) {
-				nfsm_clget;
-				*tl = 0;
+				txdr_hyper(dp->d_fileno, tl);
+				bp += 2 * NFSX_UNSIGNED;
+			} else {
+				*tl = txdr_unsigned(dp->d_fileno);
 				bp += NFSX_UNSIGNED;
 			}
-			nfsm_clget;
-			*tl = txdr_unsigned(dp->d_fileno);
-			bp += NFSX_UNSIGNED;
 			nfsm_clget;
 			*tl = txdr_unsigned(nlen);
 			bp += NFSX_UNSIGNED;
@@ -2972,17 +2937,16 @@ again:
 
 			/* Finish off the record */
 			if (v3) {
-				*tl = 0;
-				bp += NFSX_UNSIGNED;
+				txdr_hyper(dp->d_off, tl);
+				bp += 2 * NFSX_UNSIGNED;
 				nfsm_clget;
+			} else {
+				*tl = txdr_unsigned(dp->d_off);
+				bp += NFSX_UNSIGNED;
 			}
-			*tl = txdr_unsigned(*cookiep);
-			bp += NFSX_UNSIGNED;
 		}
 		cpos += dp->d_reclen;
 		dp = (struct dirent *)cpos;
-		cookiep++;
-		ncookies--;
 	}
 	vrele(vp);
 	vp = NULL;
@@ -3001,7 +2965,6 @@ again:
 	} else
 		mp->m_len += bp - bpos;
 	free((caddr_t)rbuf, M_TEMP);
-	free((caddr_t)cookies, M_TEMP);
 
 nfsmout:
 	if (vp)
@@ -3036,14 +2999,12 @@ nfsrv_readdirplus(struct nfsrv_descript *nfsd, struct nfssvc_sock *slp,
 	struct nfs_fattr *fp;
 	int len, nlen, rem, xfer, tsiz, i, error = 0, error1, getret = 1;
 	int vp_locked;
-	int siz, cnt, fullsiz, eofflag, rdonly, dirlen, ncookies;
+	int siz, cnt, fullsiz, eofflag, rdonly, dirlen;
 	u_quad_t off, toff, verf;
-	u_long *cookies = NULL, *cookiep; /* needs to be int64_t or off_t */
 	int v3 = (nfsd->nd_flag & ND_NFSV3);
 	int usevget = 1, vfslocked;
 	struct componentname cn;
 	struct mount *mntp = NULL;
-	int not_zfs;
 
 	nfsdbprintf(("%s %d\n", __FILE__, __LINE__));
 	vfslocked = 0;
@@ -3104,11 +3065,9 @@ nfsrv_readdirplus(struct nfsrv_descript *nfsd, struct nfssvc_sock *slp,
 		error = 0;
 		goto nfsmout;
 	}
-	not_zfs = strcmp(vp->v_mount->mnt_vfc->vfc_name, "zfs") != 0;
 	VOP_UNLOCK(vp, 0);
 	vp_locked = 0;
 	rbuf = malloc(siz, M_TEMP, M_WAITOK);
-again:
 	iv.iov_base = rbuf;
 	iv.iov_len = fullsiz;
 	io.uio_iov = &iv;
@@ -3120,25 +3079,17 @@ again:
 	io.uio_td = NULL;
 	eofflag = 0;
 	vp_locked = 1;
-	if (cookies) {
-		free((caddr_t)cookies, M_TEMP);
-		cookies = NULL;
-	}
 	vn_lock(vp, LK_SHARED | LK_RETRY);
-	error = VOP_READDIR(vp, &io, cred, &eofflag, &ncookies, &cookies);
+	error = VOP_READDIR(vp, &io, cred, &eofflag);
 	off = (u_quad_t)io.uio_offset;
 	getret = VOP_GETATTR(vp, &at, cred);
 	VOP_UNLOCK(vp, 0);
 	vp_locked = 0;
-	if (!cookies && !error)
-		error = NFSERR_PERM;
 	if (!error)
 		error = getret;
 	if (error) {
 		vrele(vp);
 		vp = NULL;
-		if (cookies)
-			free((caddr_t)cookies, M_TEMP);
 		free((caddr_t)rbuf, M_TEMP);
 		nfsm_reply(NFSX_V3POSTOPATTR);
 		nfsm_srvpostop_attr(getret, &at);
@@ -3163,7 +3114,6 @@ again:
 			tl += 2;
 			*tl++ = nfsrv_nfs_false;
 			*tl = nfsrv_nfs_true;
-			free((caddr_t)cookies, M_TEMP);
 			free((caddr_t)rbuf, M_TEMP);
 			error = 0;
 			goto nfsmout;
@@ -3177,29 +3127,6 @@ again:
 	cpos = rbuf;
 	cend = rbuf + siz;
 	dp = (struct dirent *)cpos;
-	cookiep = cookies;
-	/*
-	 * For some reason FreeBSD's ufs_readdir() chooses to back the
-	 * directory offset up to a block boundary, so it is necessary to
-	 * skip over the records that precede the requested offset. This
-	 * requires the assumption that file offset cookies monotonically
-	 * increase.
-	 * Since the offset cookies don't monotonically increase for ZFS,
-	 * this is not done when ZFS is the file system.
-	 */
-	while (cpos < cend && ncookies > 0 &&
-		(dp->d_fileno == 0 || dp->d_type == DT_WHT ||
-		 (not_zfs != 0 && ((u_quad_t)(*cookiep)) <= toff))) {
-		cpos += dp->d_reclen;
-		dp = (struct dirent *)cpos;
-		cookiep++;
-		ncookies--;
-	}
-	if (cpos >= cend || ncookies == 0) {
-		toff = off;
-		siz = fullsiz;
-		goto again;
-	}
 
 	dirlen = len = NFSX_V3POSTOPATTR + NFSX_V3COOKIEVERF +
 	    2 * NFSX_UNSIGNED;
@@ -3212,7 +3139,7 @@ again:
 	be = bp + M_TRAILINGSPACE(mp);
 
 	/* Loop through the records and build reply */
-	while (cpos < cend && ncookies > 0) {
+	while (cpos < cend) {
 		if (dp->d_fileno != 0 && dp->d_type != DT_WHT) {
 			nlen = dp->d_namlen;
 			rem = nfsm_rndup(nlen)-nlen;
@@ -3299,18 +3226,14 @@ again:
 			fl.fl_fhsize = txdr_unsigned(NFSX_V3FH);
 			fl.fl_fhok = nfsrv_nfs_true;
 			fl.fl_postopok = nfsrv_nfs_true;
-			fl.fl_off.nfsuquad[0] = 0;
-			fl.fl_off.nfsuquad[1] = txdr_unsigned(*cookiep);
+			txdr_hyper(dp->d_off, &fl.fl_off);
 
 			nfsm_clget;
 			*tl = nfsrv_nfs_true;
 			bp += NFSX_UNSIGNED;
 			nfsm_clget;
-			*tl = 0;
-			bp += NFSX_UNSIGNED;
-			nfsm_clget;
-			*tl = txdr_unsigned(dp->d_fileno);
-			bp += NFSX_UNSIGNED;
+			txdr_hyper(dp->d_fileno, tl);
+			bp += 2 * NFSX_UNSIGNED;
 			nfsm_clget;
 			*tl = txdr_unsigned(nlen);
 			bp += NFSX_UNSIGNED;
@@ -3355,8 +3278,6 @@ again:
 invalid:
 		cpos += dp->d_reclen;
 		dp = (struct dirent *)cpos;
-		cookiep++;
-		ncookies--;
 	}
 	if (!usevget && vp_locked)
 		vput(vp);
@@ -3377,7 +3298,6 @@ invalid:
 			mp->m_len = bp - mtod(mp, caddr_t);
 	} else
 		mp->m_len += bp - bpos;
-	free((caddr_t)cookies, M_TEMP);
 	free((caddr_t)rbuf, M_TEMP);
 nfsmout:
 	if (vp)

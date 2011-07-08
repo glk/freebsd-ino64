@@ -251,7 +251,7 @@ struct nfsreferral {
 	u_char		*nfr_srvlist;	/* List of servers */
 	int		nfr_srvcnt;	/* number of servers */
 	vnode_t		nfr_vp;	/* vnode for referral */
-	u_int32_t	nfr_dfileno;	/* assigned dir inode# */
+	u_int64_t	nfr_dfileno;	/* assigned dir inode# */
 };
 
 /*

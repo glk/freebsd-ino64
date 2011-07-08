@@ -788,7 +788,7 @@ nfsv4_loadattr(struct nfsrv_descript *nd, vnode_t vp,
 	struct timespec temptime;
 	uid_t uid;
 	gid_t gid;
-	long fid;
+	ino_t fid;
 	u_int32_t freenum = 0, tuint;
 	u_int64_t uquad = 0, thyp, thyp2;
 #ifdef QUOTA
@@ -1697,7 +1697,7 @@ nfsv4_loadattr(struct nfsrv_descript *nd, vnode_t vp,
 				} else {
 					if (!vp || !nfsrv_atroot(vp, &fid))
 						fid = nap->na_fileid;
-					if ((u_int64_t)fid != thyp)
+					if (fid != thyp)
 						*retcmpp = NFSERR_NOTSAME;
 				}
 			    }

@@ -1509,12 +1509,10 @@ nfsrvd_readdir(struct nfsrv_descript *nd, int isdgram,
 	char *cpos, *cend, *rbuf;
 	struct nfsvattr at;
 	int nlen, error = 0, getret = 1;
-	int siz, cnt, fullsiz, eofflag, ncookies;
+	int siz, cnt, fullsiz, eofflag;
 	u_int64_t off, toff, verf;
-	u_long *cookies = NULL, *cookiep;
 	struct uio io;
 	struct iovec iv;
-	int not_zfs;
 
 	if (nd->nd_repstat) {
 		nfsrv_postopattr(nd, getret, &at);
@@ -1567,14 +1565,8 @@ nfsrvd_readdir(struct nfsrv_descript *nd, int isdgram,
 			nfsrv_postopattr(nd, getret, &at);
 		goto out;
 	}
-	not_zfs = strcmp(vp->v_mount->mnt_vfc->vfc_name, "zfs");
 	MALLOC(rbuf, caddr_t, siz, M_TEMP, M_WAITOK);
-again:
 	eofflag = 0;
-	if (cookies) {
-		free((caddr_t)cookies, M_TEMP);
-		cookies = NULL;
-	}
 
 	iv.iov_base = rbuf;
 	iv.iov_len = siz;
@@ -1585,14 +1577,11 @@ again:
 	io.uio_segflg = UIO_SYSSPACE;
 	io.uio_rw = UIO_READ;
 	io.uio_td = NULL;
-	nd->nd_repstat = VOP_READDIR(vp, &io, nd->nd_cred, &eofflag, &ncookies,
-	    &cookies);
+	nd->nd_repstat = VOP_READDIR(vp, &io, nd->nd_cred, &eofflag);
 	off = (u_int64_t)io.uio_offset;
 	if (io.uio_resid)
 		siz -= io.uio_resid;
 
-	if (!cookies && !nd->nd_repstat)
-		nd->nd_repstat = NFSERR_PERM;
 	if (nd->nd_flag & ND_NFSV3) {
 		getret = nfsvno_getattr(vp, &at, nd->nd_cred, p, 1);
 		if (!nd->nd_repstat)
@@ -1605,8 +1594,6 @@ again:
 	if (nd->nd_repstat) {
 		vput(vp);
 		free((caddr_t)rbuf, M_TEMP);
-		if (cookies)
-			free((caddr_t)cookies, M_TEMP);
 		if (nd->nd_flag & ND_NFSV3)
 			nfsrv_postopattr(nd, getret, &at);
 		goto out;
@@ -1628,7 +1615,6 @@ again:
 		*tl++ = newnfs_false;
 		*tl = newnfs_true;
 		FREE((caddr_t)rbuf, M_TEMP);
-		FREE((caddr_t)cookies, M_TEMP);
 		goto out;
 	}
 
@@ -1639,30 +1625,7 @@ again:
 	cpos = rbuf;
 	cend = rbuf + siz;
 	dp = (struct dirent *)cpos;
-	cookiep = cookies;
 
-	/*
-	 * For some reason FreeBSD's ufs_readdir() chooses to back the
-	 * directory offset up to a block boundary, so it is necessary to
-	 * skip over the records that precede the requested offset. This
-	 * requires the assumption that file offset cookies monotonically
-	 * increase.
-	 * Since the offset cookies don't monotonically increase for ZFS,
-	 * this is not done when ZFS is the file system.
-	 */
-	while (cpos < cend && ncookies > 0 &&
-	    (dp->d_fileno == 0 || dp->d_type == DT_WHT ||
-	     (not_zfs != 0 && ((u_quad_t)(*cookiep)) <= toff))) {
-		cpos += dp->d_reclen;
-		dp = (struct dirent *)cpos;
-		cookiep++;
-		ncookies--;
-	}
-	if (cpos >= cend || ncookies == 0) {
-		siz = fullsiz;
-		toff = off;
-		goto again;
-	}
 	vput(vp);
 
 	/*
@@ -1681,7 +1644,7 @@ again:
 	}
 
 	/* Loop through the records and build reply */
-	while (cpos < cend && ncookies > 0) {
+	while (cpos < cend) {
 		nlen = dp->d_namlen;
 		if (dp->d_fileno != 0 && dp->d_type != DT_WHT &&
 			nlen <= NFS_MAXNAMLEN) {
@@ -1701,24 +1664,23 @@ again:
 			if (nd->nd_flag & ND_NFSV3) {
 				NFSM_BUILD(tl, u_int32_t *, 3 * NFSX_UNSIGNED);
 				*tl++ = newnfs_true;
-				*tl++ = 0;
+				txdr_hyper(dp->d_fileno, tl);
 			} else {
 				NFSM_BUILD(tl, u_int32_t *, 2 * NFSX_UNSIGNED);
 				*tl++ = newnfs_true;
+				*tl = txdr_unsigned(dp->d_fileno);
 			}
-			*tl = txdr_unsigned(dp->d_fileno);
 			(void) nfsm_strtom(nd, dp->d_name, nlen);
 			if (nd->nd_flag & ND_NFSV3) {
 				NFSM_BUILD(tl, u_int32_t *, 2 * NFSX_UNSIGNED);
-				*tl++ = 0;
-			} else
+				txdr_hyper(dp->d_off, tl);
+			} else {
 				NFSM_BUILD(tl, u_int32_t *, NFSX_UNSIGNED);
-			*tl = txdr_unsigned(*cookiep);
+				*tl = txdr_unsigned(dp->d_off);
+			}
 		}
 		cpos += dp->d_reclen;
 		dp = (struct dirent *)cpos;
-		cookiep++;
-		ncookies--;
 	}
 	if (cpos < cend)
 		eofflag = 0;
@@ -1729,7 +1691,6 @@ again:
 	else
 		*tl = newnfs_false;
 	FREE((caddr_t)rbuf, M_TEMP);
-	FREE((caddr_t)cookies, M_TEMP);
 
 out:
 	NFSEXITCODE2(0, nd);
@@ -1757,15 +1718,14 @@ nfsrvd_readdirplus(struct nfsrv_descript *nd, int isdgram,
 	struct mbuf *mb0, *mb1;
 	struct nfsreferral *refp;
 	int nlen, r, error = 0, getret = 1, usevget = 1;
-	int siz, cnt, fullsiz, eofflag, ncookies, entrycnt;
+	int siz, cnt, fullsiz, eofflag, entrycnt;
 	caddr_t bpos0, bpos1;
 	u_int64_t off, toff, verf;
-	u_long *cookies = NULL, *cookiep;
 	nfsattrbit_t attrbits, rderrbits, savbits;
 	struct uio io;
 	struct iovec iv;
 	struct componentname cn;
-	int at_root, needs_unbusy, not_zfs, supports_nfsv4acls;
+	int at_root, needs_unbusy, supports_nfsv4acls;
 	struct mount *mp, *new_mp;
 	uint64_t mounted_on_fileno;
 
@@ -1845,15 +1805,9 @@ nfsrvd_readdirplus(struct nfsrv_descript *nd, int isdgram,
 			nfsrv_postopattr(nd, getret, &at);
 		goto out;
 	}
-	not_zfs = strcmp(vp->v_mount->mnt_vfc->vfc_name, "zfs");
 
 	MALLOC(rbuf, caddr_t, siz, M_TEMP, M_WAITOK);
-again:
 	eofflag = 0;
-	if (cookies) {
-		free((caddr_t)cookies, M_TEMP);
-		cookies = NULL;
-	}
 
 	iv.iov_base = rbuf;
 	iv.iov_len = siz;
@@ -1864,22 +1818,17 @@ again:
 	io.uio_segflg = UIO_SYSSPACE;
 	io.uio_rw = UIO_READ;
 	io.uio_td = NULL;
-	nd->nd_repstat = VOP_READDIR(vp, &io, nd->nd_cred, &eofflag, &ncookies,
-	    &cookies);
+	nd->nd_repstat = VOP_READDIR(vp, &io, nd->nd_cred, &eofflag);
 	off = (u_int64_t)io.uio_offset;
 	if (io.uio_resid)
 		siz -= io.uio_resid;
 
 	getret = nfsvno_getattr(vp, &at, nd->nd_cred, p, 1);
 
-	if (!cookies && !nd->nd_repstat)
-		nd->nd_repstat = NFSERR_PERM;
 	if (!nd->nd_repstat)
 		nd->nd_repstat = getret;
 	if (nd->nd_repstat) {
 		vput(vp);
-		if (cookies)
-			free((caddr_t)cookies, M_TEMP);
 		free((caddr_t)rbuf, M_TEMP);
 		if (nd->nd_flag & ND_NFSV3)
 			nfsrv_postopattr(nd, getret, &at);
@@ -1898,7 +1847,6 @@ again:
 		tl += 2;
 		*tl++ = newnfs_false;
 		*tl = newnfs_true;
-		free((caddr_t)cookies, M_TEMP);
 		free((caddr_t)rbuf, M_TEMP);
 		goto out;
 	}
@@ -1910,33 +1858,6 @@ again:
 	cpos = rbuf;
 	cend = rbuf + siz;
 	dp = (struct dirent *)cpos;
-	cookiep = cookies;
-
-	/*
-	 * For some reason FreeBSD's ufs_readdir() chooses to back the
-	 * directory offset up to a block boundary, so it is necessary to
-	 * skip over the records that precede the requested offset. This
-	 * requires the assumption that file offset cookies monotonically
-	 * increase.
-	 * Since the offset cookies don't monotonically increase for ZFS,
-	 * this is not done when ZFS is the file system.
-	 */
-	while (cpos < cend && ncookies > 0 &&
-	  (dp->d_fileno == 0 || dp->d_type == DT_WHT ||
-	   (not_zfs != 0 && ((u_quad_t)(*cookiep)) <= toff) ||
-	   ((nd->nd_flag & ND_NFSV4) &&
-	    ((dp->d_namlen == 1 && dp->d_name[0] == '.') ||
-	     (dp->d_namlen==2 && dp->d_name[0]=='.' && dp->d_name[1]=='.'))))) {
-		cpos += dp->d_reclen;
-		dp = (struct dirent *)cpos;
-		cookiep++;
-		ncookies--;
-	}
-	if (cpos >= cend || ncookies == 0) {
-		siz = fullsiz;
-		toff = off;
-		goto again;
-	}
 
 	/*
 	 * Busy the file system so that the mount point won't go away
@@ -1949,7 +1870,6 @@ again:
 	vfs_rel(mp);
 	if (nd->nd_repstat != 0) {
 		vrele(vp);
-		free(cookies, M_TEMP);
 		free(rbuf, M_TEMP);
 		if (nd->nd_flag & ND_NFSV3)
 			nfsrv_postopattr(nd, getret, &at);
@@ -1986,7 +1906,7 @@ again:
 
 	/* Loop through the records and build reply */
 	entrycnt = 0;
-	while (cpos < cend && ncookies > 0 && dirlen < cnt) {
+	while (cpos < cend && dirlen < cnt) {
 		nlen = dp->d_namlen;
 		if (dp->d_fileno != 0 && dp->d_type != DT_WHT &&
 		    nlen <= NFS_MAXNAMLEN &&
@@ -2117,12 +2037,12 @@ again:
 			if (nd->nd_flag & ND_NFSV3) {
 				NFSM_BUILD(tl, u_int32_t *, 3 * NFSX_UNSIGNED);
 				*tl++ = newnfs_true;
-				*tl++ = 0;
-				*tl = txdr_unsigned(dp->d_fileno);
+				txdr_hyper(dp->d_fileno, tl);
+				tl += 2;
 				dirlen += nfsm_strtom(nd, dp->d_name, nlen);
 				NFSM_BUILD(tl, u_int32_t *, 2 * NFSX_UNSIGNED);
-				*tl++ = 0;
-				*tl = txdr_unsigned(*cookiep);
+				txdr_hyper(dp->d_off, tl);
+				tl += 2;
 				nfsrv_postopattr(nd, 0, nvap);
 				dirlen += nfsm_fhtom(nd,(u_int8_t *)&nfh,0,1);
 				dirlen += (5*NFSX_UNSIGNED+NFSX_V3POSTOPATTR);
@@ -2131,8 +2051,8 @@ again:
 			} else {
 				NFSM_BUILD(tl, u_int32_t *, 3 * NFSX_UNSIGNED);
 				*tl++ = newnfs_true;
-				*tl++ = 0;
-				*tl = txdr_unsigned(*cookiep);
+				txdr_hyper(dp->d_off, tl);
+				tl += 2;
 				dirlen += nfsm_strtom(nd, dp->d_name, nlen);
 				if (nvp != NULL) {
 					supports_nfsv4acls =
@@ -2175,8 +2095,6 @@ again:
 		}
 		cpos += dp->d_reclen;
 		dp = (struct dirent *)cpos;
-		cookiep++;
-		ncookies--;
 	}
 	vrele(vp);
 	vfs_unbusy(mp);
@@ -2203,7 +2121,6 @@ again:
 		else
 			*tl = newnfs_false;
 	}
-	FREE((caddr_t)cookies, M_TEMP);
 	FREE((caddr_t)rbuf, M_TEMP);
 
 out:
