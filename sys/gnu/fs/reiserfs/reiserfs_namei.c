@@ -13,9 +13,6 @@ static int	reiserfs_find_entry(struct reiserfs_node *dp,
     const char *name, int namelen,
     struct path * path_to_entry, struct reiserfs_dir_entry *de);
 
-MALLOC_DEFINE(M_REISERFSCOOKIES, "reiserfs_cookies",
-    "ReiserFS VOP_READDIR cookies");
-
 /* -------------------------------------------------------------------
  * Lookup functions
  * -------------------------------------------------------------------*/
@@ -128,8 +125,6 @@ reiserfs_readdir(struct vop_readdir_args  /* {
 		struct uio *a_uio;
 		struct ucred *a_cred;
 		int *a_eofflag;
-		int *a_ncookies;
-		u_long **a_cookies;
 	} */*ap)
 {
 	int error = 0;
@@ -146,10 +141,6 @@ reiserfs_readdir(struct vop_readdir_args  /* {
 	INITIALIZE_PATH(path_to_entry);
 	int entry_num, item_num, search_res;
 
-	/* The NFS part */
-	int ncookies = 0;
-	u_long *cookies = NULL;
-
 	/*
 	 * Form key for search the next directory entry using f_pos field of
 	 * file structure
@@ -165,12 +156,6 @@ reiserfs_readdir(struct vop_readdir_args  /* {
 	    pos_key.on_disk_key.k_objectid, pos_key.on_disk_key.k_dir_id);
 	reiserfs_log(LOG_DEBUG, "uio_offset = %jd, uio_resid = %d\n",
 	    (intmax_t)uio->uio_offset, uio->uio_resid);
-
-	if (ap->a_ncookies && ap->a_cookies) {
-		cookies = (u_long *)malloc(
-		    uio->uio_resid / 16 * sizeof(u_long),
-		    M_REISERFSCOOKIES, M_WAITOK);
-	}
 
 	while (1) {
 		//research:
@@ -199,12 +184,6 @@ reiserfs_readdir(struct vop_readdir_args  /* {
 			 */
 			struct reiserfs_de_head *deh = B_I_DEH(bp, ih) +
 			    entry_num;
-
-			if (ap->a_ncookies == NULL) {
-				cookies = NULL;
-			} else {
-				//ncookies = 
-			}
 
 			reiserfs_log(LOG_DEBUG,
 			    "walking through directory entries\n");
@@ -253,6 +232,7 @@ reiserfs_readdir(struct vop_readdir_args  /* {
 
 				/* Copy to user land */
 				dstdp.d_fileno = d_ino;
+				dstdp.d_off = d_off + 1;
 				dstdp.d_type   = DT_UNKNOWN;
 				dstdp.d_namlen = d_namlen;
 				dstdp.d_reclen = GENERIC_DIRSIZ(&dstdp);
@@ -269,11 +249,6 @@ reiserfs_readdir(struct vop_readdir_args  /* {
 						    dstdp.d_reclen, uio);
 						if (error)
 							goto end;
-						if (cookies != NULL) {
-							cookies[ncookies] =
-							    d_off;
-							ncookies++;
-						}
 					} else
 						break;
 				} else {
@@ -343,12 +318,6 @@ end:
 	pathrelse(&path_to_entry);
 	reiserfs_check_path(&path_to_entry);
 out:
-	if (error && cookies != NULL) {
-		free(cookies, M_REISERFSCOOKIES);
-	} else if (ap->a_ncookies != NULL && ap->a_cookies != NULL) {
-		*ap->a_ncookies = ncookies;
-		*ap->a_cookies  = cookies;
-	}
 	return (error);
 }
 

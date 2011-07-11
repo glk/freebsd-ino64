@@ -973,8 +973,6 @@ _xfs_readdir(
 		struct uio *a_uio;
 		struct ucred *a_cred;
 		int *a_eofflag;
-		int *a_ncookies;
-		u_long **a_cookies;
 	} */ *ap)
 {
 	struct vnode *vp = ap->a_vp;
@@ -985,9 +983,6 @@ _xfs_readdir(
 
 	if (vp->v_type != VDIR)
 		return (EPERM);
-	if (ap->a_ncookies) {
-		return (EOPNOTSUPP);
-	}
 
 	error = 0;
 	while (!eof){

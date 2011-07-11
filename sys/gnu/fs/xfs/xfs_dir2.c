@@ -721,6 +721,7 @@ xfs_dir2_put_dirent64_direct(
 	uio->uio_resid -= reclen;
 	idbp->d_reclen = reclen;
 	idbp->d_fileno = pa->ino;
+	idbp->d_off = pa->cook;
 	idbp->d_type = DT_UNKNOWN;
 	idbp->d_namlen = namelen;
 	memcpy(idbp->d_name, pa->name, namelen);
@@ -759,6 +760,7 @@ xfs_dir2_put_dirent64_uio(
 	idbp = &dtmp;
 	idbp->d_reclen = reclen;
 	idbp->d_fileno = pa->ino;
+	idbp->d_off = pa->cook;
 	idbp->d_type = DT_UNKNOWN;
 	idbp->d_namlen = namelen;
 	memcpy(idbp->d_name, pa->name, namelen);
