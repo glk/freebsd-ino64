@@ -60,6 +60,7 @@ int	ffs_balloc_ufs1(struct vnode *a_vp, off_t a_startoffset, int a_size,
 int	ffs_balloc_ufs2(struct vnode *a_vp, off_t a_startoffset, int a_size,
             struct ucred *a_cred, int a_flags, struct buf **a_bpp);
 int	ffs_blkatoff(struct vnode *, off_t, char **, struct buf **);
+int	ffs_blkatoff_ra(struct vnode *, off_t, size_t, struct buf **, int);
 void	ffs_blkfree(struct ufsmount *, struct fs *, struct vnode *,
 	    ufs2_daddr_t, long, ino_t, enum vtype, struct workhead *);
 ufs2_daddr_t ffs_blkpref_ufs1(struct inode *, ufs_lbn_t, int, ufs1_daddr_t *);

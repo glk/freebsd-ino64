@@ -94,6 +94,75 @@ ffs_blkatoff(vp, offset, res, bpp)
 	return (0);
 }
 
+int
+ffs_blkatoff_ra(struct vnode *vp, off_t uoffset, size_t nextread,
+    struct buf **bpp, int seqcount)
+{
+	struct inode *ip;
+	struct fs *fs;
+	struct buf *bp;
+	ufs_lbn_t lbn, nextlbn;
+	long size, blkoffset;
+	int error;
+
+	ip = VTOI(vp);
+	fs = ip->i_fs;
+	lbn = lblkno(fs, uoffset);
+	nextlbn = lbn + 1;
+
+	/*
+	 * size of buffer.  The buffer representing the
+	 * end of the file is rounded up to the size of
+	 * the block type ( fragment or full block,
+	 * depending ).
+	 */
+	size = blksize(fs, ip, lbn);
+	blkoffset = blkoff(fs, uoffset);
+
+	if (lblktosize(fs, nextlbn) >= ip->i_size) {
+		/*
+		 * Don't do readahead if this is the end of the file.
+		 */
+		error = bread(vp, lbn, size, NOCRED, &bp);
+	} else if ((vp->v_mount->mnt_flag & MNT_NOCLUSTERR) == 0) {
+		/*
+		 * Otherwise if we are allowed to cluster,
+		 * grab as much as we can.
+		 *
+		 * XXX  This may not be a win if we are not
+		 * doing sequential access.
+		 */
+		error = cluster_read(vp, ip->i_size, lbn,
+			size, NOCRED, blkoffset + nextread, seqcount, &bp);
+	} else if (seqcount > 1) {
+		/*
+		 * If we are NOT allowed to cluster, then
+		 * if we appear to be acting sequentially,
+		 * fire off a request for a readahead
+		 * as well as a read. Note that the 4th and 5th
+		 * arguments point to arrays of the size specified in
+		 * the 6th argument.
+		 */
+		int nextsize = blksize(fs, ip, nextlbn);
+		error = breadn(vp, lbn,
+		    size, &nextlbn, &nextsize, 1, NOCRED, &bp);
+	} else {
+		/*
+		 * Failing all of the above, just read what the
+		 * user asked for. Interestingly, the same as
+		 * the first option above.
+		 */
+		error = bread(vp, lbn, size, NOCRED, &bp);
+	}
+	if (error) {
+		brelse(bp);
+		bp = NULL;
+		return (error);
+	}
+	*bpp = bp;
+	return (0);
+}
+
 /*
  * Load up the contents of an inode and copy the appropriate pieces
  * to the incore copy.

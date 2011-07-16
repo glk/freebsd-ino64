@@ -417,9 +417,8 @@ ffs_read(ap)
 	struct uio *uio;
 	struct fs *fs;
 	struct buf *bp;
-	ufs_lbn_t lbn, nextlbn;
 	off_t bytesinfile;
-	long size, xfersize, blkoffset;
+	long xfersize, blkoffset;
 	int error, orig_resid;
 	int seqcount;
 	int ioflag;
@@ -469,73 +468,11 @@ ffs_read(ap)
 	for (error = 0, bp = NULL; uio->uio_resid > 0; bp = NULL) {
 		if ((bytesinfile = ip->i_size - uio->uio_offset) <= 0)
 			break;
-		lbn = lblkno(fs, uio->uio_offset);
-		nextlbn = lbn + 1;
 
-		/*
-		 * size of buffer.  The buffer representing the
-		 * end of the file is rounded up to the size of
-		 * the block type ( fragment or full block,
-		 * depending ).
-		 */
-		size = blksize(fs, ip, lbn);
-		blkoffset = blkoff(fs, uio->uio_offset);
-
-		/*
-		 * The amount we want to transfer in this iteration is
-		 * one FS block less the amount of the data before
-		 * our startpoint (duh!)
-		 */
-		xfersize = fs->fs_bsize - blkoffset;
-
-		/*
-		 * But if we actually want less than the block,
-		 * or the file doesn't have a whole block more of data,
-		 * then use the lesser number.
-		 */
-		if (uio->uio_resid < xfersize)
-			xfersize = uio->uio_resid;
-		if (bytesinfile < xfersize)
-			xfersize = bytesinfile;
-
-		if (lblktosize(fs, nextlbn) >= ip->i_size) {
-			/*
-			 * Don't do readahead if this is the end of the file.
-			 */
-			error = bread(vp, lbn, size, NOCRED, &bp);
-		} else if ((vp->v_mount->mnt_flag & MNT_NOCLUSTERR) == 0) {
-			/*
-			 * Otherwise if we are allowed to cluster,
-			 * grab as much as we can.
-			 *
-			 * XXX  This may not be a win if we are not
-			 * doing sequential access.
-			 */
-			error = cluster_read(vp, ip->i_size, lbn,
-				size, NOCRED, blkoffset + uio->uio_resid, seqcount, &bp);
-		} else if (seqcount > 1) {
-			/*
-			 * If we are NOT allowed to cluster, then
-			 * if we appear to be acting sequentially,
-			 * fire off a request for a readahead
-			 * as well as a read. Note that the 4th and 5th
-			 * arguments point to arrays of the size specified in
-			 * the 6th argument.
-			 */
-			int nextsize = blksize(fs, ip, nextlbn);
-			error = breadn(vp, lbn,
-			    size, &nextlbn, &nextsize, 1, NOCRED, &bp);
-		} else {
-			/*
-			 * Failing all of the above, just read what the
-			 * user asked for. Interestingly, the same as
-			 * the first option above.
-			 */
-			error = bread(vp, lbn, size, NOCRED, &bp);
-		}
+		error = ffs_blkatoff_ra(vp, uio->uio_offset, uio->uio_resid,
+		    &bp, seqcount);
 		if (error) {
-			brelse(bp);
-			bp = NULL;
+			MPASS(bp == NULL);
 			break;
 		}
 
@@ -548,6 +485,25 @@ ffs_read(ap)
 		if (ioflag & IO_DIRECT)
 			bp->b_flags |= B_DIRECT;
 
+		blkoffset = blkoff(fs, uio->uio_offset);
+
+		/*
+		 * The amount we want to transfer in this iteration is
+		 * one FS block less the amount of the data before
+		 * our startpoint (duh!)
+		 */
+		xfersize = bp->b_bufsize - blkoffset;
+
+		/*
+		 * But if we actually want less than the block,
+		 * or the file doesn't have a whole block more of data,
+		 * then use the lesser number.
+		 */
+		if (uio->uio_resid < xfersize)
+			xfersize = uio->uio_resid;
+		if (bytesinfile < xfersize)
+			xfersize = bytesinfile;
+
 		/*
 		 * We should only get non-zero b_resid when an I/O error
 		 * has occurred, which should cause us to break above.
@@ -555,11 +511,10 @@ ffs_read(ap)
 		 * then we want to ensure that we do not uiomove bad
 		 * or uninitialized data.
 		 */
-		size -= bp->b_resid;
-		if (size < xfersize) {
-			if (size == 0)
+		if (bp->b_bufsize - bp->b_resid < xfersize) {
+			if (bp->b_bufsize == bp->b_resid)
 				break;
-			xfersize = size;
+			xfersize = bp->b_bufsize - bp->b_resid;
 		}
 
 		error = uiomove((char *)bp->b_data + blkoffset,
