@@ -2143,90 +2143,106 @@ ufs_readdir(ap)
 		int *a_eofflag;
 	} */ *ap;
 {
+	struct vnode *vp = ap->a_vp;
 	struct uio *uio = ap->a_uio;
-	off_t offset, startoffset;
+	struct buf *bp;
 	struct inode *ip;
 	struct direct *dp, *edp;
-	struct dirent dstdp;
-	struct uio auio;
-	struct iovec aiov;
-	caddr_t dirbuf;
-	int error;
-	size_t count, readcnt;
+	struct dirent *dstdp;
+	off_t offset, startoffset;
+	size_t readcnt, skipcnt;
+	ssize_t startresid;
+	int error = 0;
 
-	ip = VTOI(ap->a_vp);
+	if (uio->uio_offset < 0)
+		return (EINVAL);
+
+	ip = VTOI(vp);
 	if (ip->i_effnlink == 0)
 		return (0);
-	count = uio->uio_resid;
-	/*
-	 * Avoid complications for partial directory entries by adjusting
-	 * the i/o to end at a block boundary.  Don't give up (like the old ufs
-	 * does) if the initial adjustment gives a negative count, since
-	 * many callers don't supply a large enough buffer.  The correct
-	 * size is a little larger than DIRBLKSIZ to allow for expansion
-	 * of directory entries, but some callers just use 512.
-	 */
+
 	offset = startoffset = uio->uio_offset;
-	count -= (uio->uio_offset + count) & (DIRBLKSIZ - 1);
-	if (count <= 0)
-		count += DIRBLKSIZ;
-	else if (count > MAXBSIZE)
-		count = MAXBSIZE;
-
-	auio = *uio;
-	auio.uio_iov = &aiov;
-	auio.uio_iovcnt = 1;
-	auio.uio_resid = count;
-	auio.uio_segflg = UIO_SYSSPACE;
-	aiov.iov_len = count;
-	dirbuf = malloc(count, M_TEMP, M_WAITOK);
-	aiov.iov_base = dirbuf;
-	error = VOP_READ(ap->a_vp, &auio, 0, ap->a_cred);
-	if (error == 0) {
-		readcnt = count - auio.uio_resid;
-		edp = (struct direct *)&dirbuf[readcnt];
-		bzero(&dstdp, offsetof(struct dirent, d_name));
-		for (dp = (struct direct *)dirbuf;
-		    !error && uio->uio_resid > 0 && dp < edp; ) {
-			dstdp.d_fileno = dp->d_ino;
-#if BYTE_ORDER == LITTLE_ENDIAN
-			if (ap->a_vp->v_mount->mnt_maxsymlinklen <= 0) {
-				dstdp.d_namlen = dp->d_type;
-				dstdp.d_type = dp->d_namlen;
-			} else
-#endif
-			{
-				dstdp.d_namlen = dp->d_namlen;
-				dstdp.d_type = dp->d_type;
-			}
-
-			if (dp->d_reclen > 0 && dstdp.d_namlen <= MAXNAMLEN) {
-				dstdp.d_off = offset + dp->d_reclen;
-				dstdp.d_reclen = GENERIC_DIRSIZ(&dstdp);
-				bcopy(dp->d_name, dstdp.d_name, dstdp.d_namlen);
-				dstdp.d_name[dstdp.d_namlen] = '\0';
-				if (dstdp.d_reclen > uio->uio_resid)
-					break;
-				/* advance dp */
-				error = uiomove((caddr_t)&dstdp,
-				    dstdp.d_reclen, uio);
-				if (error == 0) {
-					offset += dp->d_reclen;
-					dp = (struct direct *)
-					    ((char *)dp + dp->d_reclen);
-				}
-			} else {
+	startresid = uio->uio_resid;
+	dstdp = malloc(sizeof(struct dirent), M_TEMP, M_WAITOK);
+	while (error == 0 && uio->uio_resid > 0 &&
+	    uio->uio_offset < ip->i_size) {
+		error = ffs_blkatoff_ra(vp, uio->uio_offset,
+		    startresid, &bp, 2);
+		if (error)
+			break;
+		if (bp->b_offset + bp->b_bcount > ip->i_size)
+			readcnt = ip->i_size - bp->b_offset;
+		else
+			readcnt = bp->b_bcount;
+		skipcnt = (size_t)(uio->uio_offset - bp->b_offset) &
+		    ~(size_t)(DIRBLKSIZ - 1);
+		offset = bp->b_offset + skipcnt;
+		dp = (struct direct *)&bp->b_data[skipcnt];
+		edp = (struct direct *)&bp->b_data[readcnt];
+		while (error == 0 && uio->uio_resid > 0 && dp < edp) {
+			if (dp->d_reclen <= 0 ||
+			    (caddr_t)dp + dp->d_reclen > (caddr_t)edp) {
 				error = EIO;
 				break;
 			}
+			if (offset < startoffset)
+				goto nextentry;
+
+#if BYTE_ORDER == LITTLE_ENDIAN
+			if (vp->v_mount->mnt_maxsymlinklen <= 0) {
+				dstdp->d_namlen = dp->d_type;
+				dstdp->d_type = dp->d_namlen;
+			} else
+#endif
+			{
+				dstdp->d_namlen = dp->d_namlen;
+				dstdp->d_type = dp->d_type;
+			}
+
+			if (__offsetof(struct direct, d_name) +
+			    dstdp->d_namlen > dp->d_reclen) {
+				error = EIO;
+				break;
+			}
+
+			if (dp->d_ino == 0)
+				goto nextentry;
+
+			dstdp->d_fileno = dp->d_ino;
+			dstdp->d_off = offset + dp->d_reclen;
+			dstdp->d_reclen = GENERIC_DIRSIZ(dstdp);
+			bcopy(dp->d_name, dstdp->d_name, dstdp->d_namlen);
+			dstdp->d_name[dstdp->d_namlen] = '\0';
+			if (dstdp->d_reclen > uio->uio_resid) {
+				if (uio->uio_resid == startresid)
+					error = EINVAL;
+				else
+					error = -1;
+				break;
+			}
+			/* advance dp */
+			error = uiomove((caddr_t)dstdp, dstdp->d_reclen, uio);
+			if (error)
+				break;
+nextentry:
+			offset += dp->d_reclen;
+			dp = (struct direct *)((caddr_t)dp + dp->d_reclen);
 		}
-		/* we need to correct uio_offset */
-		uio->uio_offset = startoffset + (caddr_t)dp - dirbuf;
+		brelse(bp);
+		uio->uio_offset = offset;
 	}
 
-	free(dirbuf, M_TEMP);
-	if (ap->a_eofflag)
-		*ap->a_eofflag = VTOI(ap->a_vp)->i_size <= uio->uio_offset;
+	/* we need to correct uio_offset */
+	if (uio->uio_resid == startresid)
+		uio->uio_offset = startoffset;
+	else
+		uio->uio_offset = offset;
+
+	free(dstdp, M_TEMP);
+	if (error == -1)
+		error = 0;
+	if (error == 0 && ap->a_eofflag)
+		*ap->a_eofflag = ip->i_size <= uio->uio_offset;
 	return (error);
 }
 
