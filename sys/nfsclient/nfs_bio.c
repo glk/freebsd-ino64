@@ -455,6 +455,8 @@ nfs_bioread(struct vnode *vp, struct uio *uio, int ioflag, struct ucred *cred)
 		return (0);
 	if (uio->uio_offset < 0)	/* XXX VDIR cookies can be negative */
 		return (EINVAL);
+	if (vp->v_type == VDIR && uio->uio_resid < DIRBLKSIZ)
+		return (EINVAL);
 	td = uio->uio_td;
 
 	mtx_lock(&nmp->nm_mtx);
@@ -592,6 +594,8 @@ nfs_bioread(struct vnode *vp, struct uio *uio, int ioflag, struct ucred *cred)
 		    && uio->uio_offset >= np->n_direofoffset) {
 		    return (0);
 		}
+		if (uio->uio_resid < DIRBLKSIZ)
+		    return (0);
 		lbn = (uoff_t)uio->uio_offset / NFS_DIRBLKSIZ;
 		on = uio->uio_offset & (NFS_DIRBLKSIZ - 1);
 		bp = nfs_getcacheblk(vp, lbn, NFS_DIRBLKSIZ, td);
@@ -700,6 +704,10 @@ nfs_bioread(struct vnode *vp, struct uio *uio, int ioflag, struct ucred *cred)
 		n = lmin(uio->uio_resid, NFS_DIRBLKSIZ - bp->b_resid - on);
 		if (np->n_direofoffset && n > np->n_direofoffset - uio->uio_offset)
 			n = np->n_direofoffset - uio->uio_offset;
+		else {
+			/* Align offset. Abort if n <= 0 or resid < DIRBLKSIZ */
+			n -= (uio->uio_offset + n) & (DIRBLKSIZ - 1);
+		}
 		break;
 	    default:
 		nfs_printf(" nfs_bioread: type %x unexpected\n", vp->v_type);
