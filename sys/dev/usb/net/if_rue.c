@@ -99,7 +99,7 @@ __FBSDID("$FreeBSD$");
 #ifdef USB_DEBUG
 static int rue_debug = 0;
 
-SYSCTL_NODE(_hw_usb, OID_AUTO, rue, CTLFLAG_RW, 0, "USB rue");
+static SYSCTL_NODE(_hw_usb, OID_AUTO, rue, CTLFLAG_RW, 0, "USB rue");
 SYSCTL_INT(_hw_usb_rue, OID_AUTO, debug, CTLFLAG_RW,
     &rue_debug, 0, "Debug level");
 #endif
@@ -889,9 +889,9 @@ rue_ifmedia_sts(struct ifnet *ifp, struct ifmediareq *ifmr)
 
 	RUE_LOCK(sc);
 	mii_pollstat(mii);
-	RUE_UNLOCK(sc);
 	ifmr->ifm_active = mii->mii_media_active;
 	ifmr->ifm_status = mii->mii_media_status;
+	RUE_UNLOCK(sc);
 }
 
 static void

@@ -755,6 +755,7 @@ MALLOC_DECLARE(M_SUBPROC);
 } while (0)
 #define	_PRELE(p) do {							\
 	PROC_LOCK_ASSERT((p), MA_OWNED);				\
+	PROC_ASSERT_HELD(p);						\
 	(--(p)->p_lock);						\
 	if (((p)->p_flag & P_WEXIT) && (p)->p_lock == 0)		\
 		wakeup(&(p)->p_lock);					\
@@ -873,9 +874,6 @@ void	cpu_switch(struct thread *, struct thread *, struct mtx *);
 void	cpu_throw(struct thread *, struct thread *) __dead2;
 void	unsleep(struct thread *);
 void	userret(struct thread *, struct trapframe *);
-struct syscall_args;
-int	syscallenter(struct thread *, struct syscall_args *);
-void	syscallret(struct thread *, int, struct syscall_args *);
 
 void	cpu_exit(struct thread *);
 void	exit1(struct thread *, int) __dead2;

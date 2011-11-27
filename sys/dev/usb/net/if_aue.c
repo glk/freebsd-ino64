@@ -102,7 +102,7 @@ __FBSDID("$FreeBSD$");
 #ifdef USB_DEBUG
 static int aue_debug = 0;
 
-SYSCTL_NODE(_hw_usb, OID_AUTO, aue, CTLFLAG_RW, 0, "USB aue");
+static SYSCTL_NODE(_hw_usb, OID_AUTO, aue, CTLFLAG_RW, 0, "USB aue");
 SYSCTL_INT(_hw_usb_aue, OID_AUTO, debug, CTLFLAG_RW, &aue_debug, 0,
     "Debug level");
 #endif
@@ -1032,9 +1032,9 @@ aue_ifmedia_sts(struct ifnet *ifp, struct ifmediareq *ifmr)
 
 	AUE_LOCK(sc);
 	mii_pollstat(mii);
-	AUE_UNLOCK(sc);
 	ifmr->ifm_active = mii->mii_media_active;
 	ifmr->ifm_status = mii->mii_media_status;
+	AUE_UNLOCK(sc);
 }
 
 /*

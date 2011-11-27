@@ -140,7 +140,7 @@ static const char smppc_opts[] = "a:A:d:lm:M:o:p:s:S:T:";
 static const char smpphylist_opts[] = "lq";
 #endif
 
-struct camcontrol_opts option_table[] = {
+static struct camcontrol_opts option_table[] = {
 #ifndef MINIMALISTIC
 	{"tur", CAM_CMD_TUR, CAM_ARG_NONE, NULL},
 	{"inquiry", CAM_CMD_INQUIRY, CAM_ARG_NONE, "DSR"},
@@ -207,8 +207,8 @@ struct cam_devlist {
 	path_id_t path_id;
 };
 
-cam_cmdmask cmdlist;
-cam_argmask arglist;
+static cam_cmdmask cmdlist;
+static cam_argmask arglist;
 
 camcontrol_optret getoption(struct camcontrol_opts *table, char *arg,
 			    uint32_t *cmdnum, cam_argmask *argnum,
@@ -1907,7 +1907,9 @@ readdefects(struct cam_device *device, int argc, char **argv,
 		int error_code, sense_key, asc, ascq;
 
 		sense = &ccb->csio.sense_data;
-		scsi_extract_sense(sense, &error_code, &sense_key, &asc, &ascq);
+		scsi_extract_sense_len(sense, ccb->csio.sense_len -
+		    ccb->csio.sense_resid, &error_code, &sense_key, &asc,
+		    &ascq, /*show_errors*/ 1);
 
 		/*
 		 * According to the SCSI spec, if the disk doesn't support
@@ -3798,8 +3800,9 @@ doreport:
 			int error_code, sense_key, asc, ascq;
 
 			sense = &ccb->csio.sense_data;
-			scsi_extract_sense(sense, &error_code, &sense_key,
-					   &asc, &ascq);
+			scsi_extract_sense_len(sense, ccb->csio.sense_len -
+			    ccb->csio.sense_resid, &error_code, &sense_key,
+			    &asc, &ascq, /*show_errors*/ 1);
 
 			/*
 			 * According to the SCSI-2 and SCSI-3 specs, a
@@ -3810,15 +3813,15 @@ doreport:
 			 */
 			if ((sense_key == SSD_KEY_NOT_READY)
 			 && (asc == 0x04) && (ascq == 0x04)) {
-				if ((sense->extra_len >= 10)
-				 && ((sense->sense_key_spec[0] &
-				      SSD_SCS_VALID) != 0)
+				uint8_t sks[3];
+
+				if ((scsi_get_sks(sense, ccb->csio.sense_len -
+				     ccb->csio.sense_resid, sks) == 0)
 				 && (quiet == 0)) {
 					int val;
 					u_int64_t percentage;
 
-					val = scsi_2btoul(
-						&sense->sense_key_spec[1]);
+					val = scsi_2btoul(&sks[1]);
 					percentage = 10000 * val;
 
 					fprintf(stdout,
@@ -4643,7 +4646,7 @@ bailout:
 	return (error);
 }
 
-struct camcontrol_opts phy_ops[] = {
+static struct camcontrol_opts phy_ops[] = {
 	{"nop", SMP_PC_PHY_OP_NOP, CAM_ARG_NONE, NULL},
 	{"linkreset", SMP_PC_PHY_OP_LINK_RESET, CAM_ARG_NONE, NULL},
 	{"hardreset", SMP_PC_PHY_OP_HARD_RESET, CAM_ARG_NONE, NULL},

@@ -94,24 +94,38 @@
  *	object that the page belongs to (O), the pool lock for the page (P),
  *	or the lock for either the free or paging queues (Q).  If a field is
  *	annotated below with two of these locks, then holding either lock is
- *	sufficient for read access, but both locks are required for write 
+ *	sufficient for read access, but both locks are required for write
  *	access.
  *
- *	In contrast, the synchronization of accesses to the page's dirty field
- *	is machine dependent (M).  In the machine-independent layer, the lock
- *	on the object that the page belongs to must be held in order to
- *	operate on the field.  However, the pmap layer is permitted to set
- *	all bits within the field without holding that lock.  Therefore, if
- *	the underlying architecture does not support atomic read-modify-write
- *	operations on the field's type, then the machine-independent layer
- *	must also hold the page queues lock when performing read-modify-write
- *	operations and the pmap layer must hold the page queues lock when
- *	setting the field.  In the machine-independent layer, the
- *	implementation of read-modify-write operations on the field is
- *	encapsulated in vm_page_clear_dirty_mask().
+ *	In contrast, the synchronization of accesses to the page's
+ *	dirty field is machine dependent (M).  In the
+ *	machine-independent layer, the lock on the object that the
+ *	page belongs to must be held in order to operate on the field.
+ *	However, the pmap layer is permitted to set all bits within
+ *	the field without holding that lock.  If the underlying
+ *	architecture does not support atomic read-modify-write
+ *	operations on the field's type, then the machine-independent
+ *	layer uses a 32-bit atomic on the aligned 32-bit word that
+ *	contains the dirty field.  In the machine-independent layer,
+ *	the implementation of read-modify-write operations on the
+ *	field is encapsulated in vm_page_clear_dirty_mask().
  */
 
 TAILQ_HEAD(pglist, vm_page);
+
+#if PAGE_SIZE == 4096
+#define VM_PAGE_BITS_ALL 0xffu
+typedef uint8_t vm_page_bits_t;
+#elif PAGE_SIZE == 8192
+#define VM_PAGE_BITS_ALL 0xffffu
+typedef uint16_t vm_page_bits_t;
+#elif PAGE_SIZE == 16384
+#define VM_PAGE_BITS_ALL 0xffffffffu
+typedef uint32_t vm_page_bits_t;
+#elif PAGE_SIZE == 32768
+#define VM_PAGE_BITS_ALL 0xfffffffffffffffflu
+typedef uint64_t vm_page_bits_t;
+#endif
 
 struct vm_page {
 	TAILQ_ENTRY(vm_page) pageq;	/* queue info for FIFO queue or free list (Q) */
@@ -137,20 +151,8 @@ struct vm_page {
 	u_char	busy;			/* page busy count (O) */
 	/* NOTE that these must support one bit per DEV_BSIZE in a page!!! */
 	/* so, on normal X86 kernels, they must be at least 8 bits wide */
-	/* In reality, support for 32KB pages is not fully implemented. */
-#if PAGE_SIZE == 4096
-	u_char	valid;			/* map of valid DEV_BSIZE chunks (O) */
-	u_char	dirty;			/* map of dirty DEV_BSIZE chunks (M) */
-#elif PAGE_SIZE == 8192
-	u_short	valid;			/* map of valid DEV_BSIZE chunks (O) */
-	u_short	dirty;			/* map of dirty DEV_BSIZE chunks (M) */
-#elif PAGE_SIZE == 16384
-	u_int valid;			/* map of valid DEV_BSIZE chunks (O) */
-	u_int dirty;			/* map of dirty DEV_BSIZE chunks (M) */
-#elif PAGE_SIZE == 32768
-	u_long valid;			/* map of valid DEV_BSIZE chunks (O) */
-	u_long dirty;			/* map of dirty DEV_BSIZE chunks (M) */
-#endif
+	vm_page_bits_t valid;		/* map of valid DEV_BSIZE chunks (O) */
+	vm_page_bits_t dirty;		/* map of dirty DEV_BSIZE chunks (M) */
 };
 
 /*
@@ -322,16 +324,6 @@ extern struct vpglocks vm_page_queue_lock;
 #define vm_page_lock_queues()   mtx_lock(&vm_page_queue_mtx)
 #define vm_page_unlock_queues() mtx_unlock(&vm_page_queue_mtx)
 
-#if PAGE_SIZE == 4096
-#define VM_PAGE_BITS_ALL 0xffu
-#elif PAGE_SIZE == 8192
-#define VM_PAGE_BITS_ALL 0xffffu
-#elif PAGE_SIZE == 16384
-#define VM_PAGE_BITS_ALL 0xffffffffu
-#elif PAGE_SIZE == 32768
-#define VM_PAGE_BITS_ALL 0xfffffffffffffffflu
-#endif
-
 /* page allocation classes: */
 #define VM_ALLOC_NORMAL		0
 #define VM_ALLOC_INTERRUPT	1
@@ -403,7 +395,7 @@ void vm_page_clear_dirty (vm_page_t, int, int);
 void vm_page_set_invalid (vm_page_t, int, int);
 int vm_page_is_valid (vm_page_t, int, int);
 void vm_page_test_dirty (vm_page_t);
-int vm_page_bits (int, int);
+vm_page_bits_t vm_page_bits(int base, int size);
 void vm_page_zero_invalid(vm_page_t m, boolean_t setvalid);
 void vm_page_free_toq(vm_page_t m);
 void vm_page_zero_idle_wakeup(void);

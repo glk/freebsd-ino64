@@ -89,6 +89,7 @@ SUBDIR=	${_3dfx} \
 	en \
 	${_ep} \
 	${_epic} \
+	esp \
 	${_et} \
 	${_ex} \
 	${_exca} \
@@ -136,7 +137,7 @@ SUBDIR=	${_3dfx} \
 	${_io} \
 	ipdivert \
 	${_ipfilter} \
-	ipfw \
+	${_ipfw} \
 	ipfw_nat \
 	${_ipmi} \
 	ip_mroute_mod \
@@ -254,6 +255,7 @@ SUBDIR=	${_3dfx} \
 	${_pst} \
 	pty  \
 	puc \
+	${_qlxgb} \
 	ral \
 	ralfw \
 	${_random} \
@@ -302,6 +304,7 @@ SUBDIR=	${_3dfx} \
 	trm \
 	${_twa} \
 	twe \
+	tws \
 	tx \
 	txp \
 	uart \
@@ -319,6 +322,7 @@ SUBDIR=	${_3dfx} \
 	vr \
 	vte \
 	vx \
+	${_vxge} \
 	wb \
 	${_wi} \
 	wlan \
@@ -373,6 +377,10 @@ _if_carp=	if_carp
 
 .if ${MK_IPFILTER} != "no" || defined(ALL_MODULES)
 _ipfilter=	ipfilter
+.endif
+
+.if ${MK_INET_SUPPORT} != "no" || defined(ALL_MODULES)
+_ipfw=		ipfw
 .endif
 
 .if ${MK_NETGRAPH} != "no" || defined(ALL_MODULES)
@@ -472,6 +480,7 @@ _sppp=		sppp
 _stg=		stg
 _streams=	streams
 _svr4=		svr4
+_vxge=  	vxge
 _wi=		wi
 _xe=		xe
 .if ${MK_ZFS} != "no" || defined(ALL_MODULES)
@@ -613,6 +622,7 @@ _opensolaris=	opensolaris
 _padlock=	padlock
 .endif
 _pccard=	pccard
+_qlxgb=		qlxgb
 _rdma=		rdma	
 _s3=		s3
 _safe=		safe
@@ -625,6 +635,7 @@ _sppp=		sppp
 _tpm=		tpm
 _twa=		twa
 _vesa=		vesa
+_vxge=  	vxge
 _x86bios=	x86bios
 _wi=		wi
 _wpi=		wpi

@@ -101,7 +101,7 @@ static void ahci_process_request_sense(device_t dev, union ccb *ccb);
 static void ahciaction(struct cam_sim *sim, union ccb *ccb);
 static void ahcipoll(struct cam_sim *sim);
 
-MALLOC_DEFINE(M_AHCI, "AHCI driver", "AHCI driver data buffers");
+static MALLOC_DEFINE(M_AHCI, "AHCI driver", "AHCI driver data buffers");
 
 static struct {
 	uint32_t	id;
@@ -197,6 +197,7 @@ static struct {
 	{0x91231b4b, 0x11, "Marvell 88SE912x",	AHCI_Q_NOBSYRES|AHCI_Q_ALTSIG},
 	{0x91231b4b, 0x00, "Marvell 88SE912x",	AHCI_Q_EDGEIS|AHCI_Q_SATA2|AHCI_Q_NOBSYRES},
 	{0x91251b4b, 0x00, "Marvell 88SE9125",	AHCI_Q_NOBSYRES},
+	{0x91281b4b, 0x00, "Marvell 88SE9128",	AHCI_Q_NOBSYRES|AHCI_Q_ALTSIG},
 	{0x91721b4b, 0x00, "Marvell 88SE9172",	AHCI_Q_NOBSYRES},
 	{0x91821b4b, 0x00, "Marvell 88SE9182",	AHCI_Q_NOBSYRES},
 	{0x06201103, 0x00, "HighPoint RocketRAID 620",	AHCI_Q_NOBSYRES},
