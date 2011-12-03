@@ -360,7 +360,6 @@ FBSD_1.1 {
 FBSD_1.2 {
 	basename_r;
 	cfmakesane;
-	dirfd;
 	endutxent;
 	getpagesizes;
 	getutxent;
@@ -380,6 +379,10 @@ FBSD_1.2 {
 	sem_wait;
 	setutxdb;
 	setutxent;
+};
+
+FBSD_1.3 {
+	dirfd;
 };
 
 FBSDprivate_1.0 {
