@@ -2479,11 +2479,14 @@ kern_lstat(struct thread *td, char *path, enum uio_seg pathseg, struct stat *sbp
 	    sbp));
 }
 
+#if defined(COMPAT_FREEBSD4) || defined(COMPAT_FREEBSD5) || \
+    defined(COMPAT_FREEBSD6) || defined(COMPAT_FREEBSD7) || \
+    defined(COMPAT_FREEBSD9)
 /*
  * Implementation of the NetBSD [l]stat() functions.
  */
 void
-cvtnstat(sb, nsb)
+freebsd9_cvtnstat(sb, nsb)
 	struct stat *sb;
 	struct nstat *nsb;
 {
@@ -2507,15 +2510,15 @@ cvtnstat(sb, nsb)
 }
 
 #ifndef _SYS_SYSPROTO_H_
-struct nstat_args {
+struct freebsd9_nstat_args {
 	char	*path;
 	struct nstat *ub;
 };
 #endif
 int
-sys_nstat(td, uap)
+freebsd9_nstat(td, uap)
 	struct thread *td;
-	register struct nstat_args /* {
+	register struct freebsd9_nstat_args /* {
 		char *path;
 		struct nstat *ub;
 	} */ *uap;
@@ -2527,7 +2530,7 @@ sys_nstat(td, uap)
 	error = kern_stat(td, uap->path, UIO_USERSPACE, &sb);
 	if (error)
 		return (error);
-	cvtnstat(&sb, &nsb);
+	freebsd9_cvtnstat(&sb, &nsb);
 	error = copyout(&nsb, uap->ub, sizeof (nsb));
 	return (error);
 }
@@ -2536,15 +2539,15 @@ sys_nstat(td, uap)
  * NetBSD lstat.  Get file status; this version does not follow links.
  */
 #ifndef _SYS_SYSPROTO_H_
-struct lstat_args {
+struct freebsd9_nlstat_args {
 	char	*path;
 	struct stat *ub;
 };
 #endif
 int
-sys_nlstat(td, uap)
+freebsd9_nlstat(td, uap)
 	struct thread *td;
-	register struct nlstat_args /* {
+	register struct freebsd9_nlstat_args /* {
 		char *path;
 		struct nstat *ub;
 	} */ *uap;
@@ -2556,10 +2559,11 @@ sys_nlstat(td, uap)
 	error = kern_lstat(td, uap->path, UIO_USERSPACE, &sb);
 	if (error)
 		return (error);
-	cvtnstat(&sb, &nsb);
+	freebsd9_cvtnstat(&sb, &nsb);
 	error = copyout(&nsb, uap->ub, sizeof (nsb));
 	return (error);
 }
+#endif /* COMPAT_FREEBSD9 */
 
 /*
  * Get configurable pathname variables.
