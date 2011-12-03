@@ -140,7 +140,6 @@ ext2_readdir(ap)
 	int count, error;
 
 	struct ext2fs_direct_2 *edp, *dp;
-	int ncookies;
 	struct dirent dstdp;
 	struct uio auio;
 	struct iovec aiov;
@@ -148,6 +147,7 @@ ext2_readdir(ap)
 	int DIRBLKSIZ = VTOI(ap->a_vp)->i_e2fs->e2fs_bsize;
 	int readcnt;
 	off_t startoffset = uio->uio_offset;
+	off_t offset;
 
 	count = uio->uio_resid;
 	/*
@@ -161,6 +161,8 @@ ext2_readdir(ap)
 	count -= (uio->uio_offset + count) & (DIRBLKSIZ -1);
 	if (count <= 0)
 		count += DIRBLKSIZ;
+	else if (count > MAXBSIZE)
+		count = MAXBSIZE;
 	auio = *uio;
 	auio.uio_iov = &aiov;
 	auio.uio_iovcnt = 1;
@@ -172,8 +174,8 @@ ext2_readdir(ap)
 	error = VOP_READ(ap->a_vp, &auio, 0, ap->a_cred);
 	if (error == 0) {
 		readcnt = count - auio.uio_resid;
+		offset = startoffset;
 		edp = (struct ext2fs_direct_2 *)&dirbuf[readcnt];
-		ncookies = 0;
 		bzero(&dstdp, offsetof(struct dirent, d_name));
 		for (dp = (struct ext2fs_direct_2 *)dirbuf;
 		    !error && uio->uio_resid > 0 && dp < edp; ) {
@@ -197,22 +199,23 @@ ext2_readdir(ap)
 			dstdp.d_type = FTTODT(dp->e2d_type);
 			dstdp.d_namlen = dp->e2d_namlen;
 			dstdp.d_reclen = GENERIC_DIRSIZ(&dstdp);
+			dstdp.d_off = offset + dp->e2d_reclen;
 			bcopy(dp->e2d_name, dstdp.d_name, dstdp.d_namlen);
 			bzero(dstdp.d_name + dstdp.d_namlen,
 			    dstdp.d_reclen - offsetof(struct dirent, d_name) -
 			    dstdp.d_namlen);
 
 			if (dp->e2d_reclen > 0) {
-				if(dstdp.d_reclen <= uio->uio_resid) {
-					/* advance dp */
-					dp = (struct ext2fs_direct_2 *)
-					    ((char *)dp + dp->e2d_reclen);
-					error =
-					  uiomove(&dstdp, dstdp.d_reclen, uio);
-					if (!error)
-						ncookies++;
-				} else
+				error = vfs_read_dirent(ap, &dstdp);
+				if (error != 0) {
+					if (error < 0)
+						error = 0;
 					break;
+				}
+				/* advance dp */
+				offset += dp->e2d_reclen;
+				dp = (struct ext2fs_direct_2 *)
+				    ((char *)dp + dp->e2d_reclen);
 			} else {
 				error = EIO;
 				break;
@@ -220,26 +223,7 @@ ext2_readdir(ap)
 		}
 		/* we need to correct uio_offset */
 		uio->uio_offset = startoffset + (caddr_t)dp - dirbuf;
-
-		if (!error && ap->a_ncookies != NULL) {
-			u_long *cookiep, *cookies, *ecookies;
-			off_t off;
-
-			if (uio->uio_segflg != UIO_SYSSPACE || uio->uio_iovcnt != 1)
-				panic("ext2_readdir: unexpected uio from NFS server");
-			cookies = malloc(ncookies * sizeof(u_long), M_TEMP,
-			       M_WAITOK);
-			off = startoffset;
-			for (dp = (struct ext2fs_direct_2 *)dirbuf,
-			     cookiep = cookies, ecookies = cookies + ncookies;
-			     cookiep < ecookies;
-			     dp = (struct ext2fs_direct_2 *)((caddr_t) dp + dp->e2d_reclen)) {
-				off += dp->e2d_reclen;
-				*cookiep++ = (u_long) off;
-			}
-			*ap->a_ncookies = ncookies;
-			*ap->a_cookies = cookies;
-		}
+		MPASS(offset == uio->uio_offset);
 	}
 	free(dirbuf, M_TEMP);
 	if (ap->a_eofflag)

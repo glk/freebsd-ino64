@@ -1497,8 +1497,6 @@ msdosfs_readdir(ap)
 		struct uio *a_uio;
 		struct ucred *a_cred;
 		int *a_eofflag;
-		int *a_ncookies;
-		u_long **a_cookies;
 	} */ *ap;
 {
 	struct mbnambuf nb;
@@ -1518,8 +1516,6 @@ msdosfs_readdir(ap)
 	struct direntry *dentp;
 	struct dirent dirbuf;
 	struct uio *uio = ap->a_uio;
-	u_long *cookies = NULL;
-	int ncookies = 0;
 	off_t offset, off;
 	int chksum = -1;
 
@@ -1551,14 +1547,6 @@ msdosfs_readdir(ap)
 	if (uio->uio_resid < sizeof(struct direntry) ||
 	    (offset & (sizeof(struct direntry) - 1)))
 		return (EINVAL);
-
-	if (ap->a_ncookies) {
-		ncookies = uio->uio_resid / 16;
-		cookies = malloc(ncookies * sizeof(u_long), M_TEMP,
-		       M_WAITOK);
-		*ap->a_cookies = cookies;
-		*ap->a_ncookies = ncookies;
-	}
 
 	dirsperblk = pmp->pm_BytesPerSec / sizeof(struct direntry);
 
@@ -1593,6 +1581,8 @@ msdosfs_readdir(ap)
 
 					dirbuf.d_fileno = (uint32_t)fileno;
 				}
+				offset += sizeof(struct direntry);
+				dirbuf.d_off = offset;
 				dirbuf.d_type = DT_DIR;
 				switch (n) {
 				case 0:
@@ -1610,13 +1600,7 @@ msdosfs_readdir(ap)
 				error = uiomove(&dirbuf, dirbuf.d_reclen, uio);
 				if (error)
 					goto out;
-				offset += sizeof(struct direntry);
 				off = offset;
-				if (cookies) {
-					*cookies++ = offset;
-					if (--ncookies <= 0)
-						goto out;
-				}
 			}
 		}
 	}
@@ -1722,6 +1706,7 @@ msdosfs_readdir(ap)
 				    msdosfs_fileno_map(pmp->pm_mountp, fileno);
 			} else
 				dirbuf.d_fileno = (uint32_t)fileno;
+			dirbuf.d_off = offset + sizeof(struct direntry);
 
 			if (chksum != winChksum(dentp->deName)) {
 				dirbuf.d_namlen = dos2unixfn(dentp->deName,
@@ -1744,22 +1729,11 @@ msdosfs_readdir(ap)
 				brelse(bp);
 				goto out;
 			}
-			if (cookies) {
-				*cookies++ = offset + sizeof(struct direntry);
-				if (--ncookies <= 0) {
-					brelse(bp);
-					goto out;
-				}
-			}
 			off = offset + sizeof(struct direntry);
 		}
 		brelse(bp);
 	}
 out:
-	/* Subtract unused cookies */
-	if (ap->a_ncookies)
-		*ap->a_ncookies -= ncookies;
-
 	uio->uio_offset = off;
 
 	/*

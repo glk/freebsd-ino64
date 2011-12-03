@@ -539,17 +539,8 @@ portal_readdir(ap)
 		struct uio *a_uio;
 		struct ucred *a_cred;
 		int *a_eofflag;
-		u_long *a_cookies;
-		int a_ncookies;
 	} */ *ap;
 {
-
-	/*
-	 * We don't allow exporting portal mounts, and currently local
-	 * requests do not need cookies.
-	 */
-	if (ap->a_ncookies)
-		panic("portal_readdir: not hungry");
 
 	return (0);
 }

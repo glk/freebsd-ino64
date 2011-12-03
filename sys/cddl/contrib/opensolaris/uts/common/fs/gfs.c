@@ -258,8 +258,7 @@ gfs_readdir_init(gfs_readdir_state_t *st, int name_max, int ureclen,
  *   next	- the offset of the next entry
  */
 static int
-gfs_readdir_emit_int(gfs_readdir_state_t *st, uio_t *uiop, offset_t next,
-    int *ncookies, u_long **cookies)
+gfs_readdir_emit_int(gfs_readdir_state_t *st, uio_t *uiop, offset_t next)
 {
 	int reclen, namlen;
 	dirent64_t *dp;
@@ -289,6 +288,7 @@ gfs_readdir_emit_int(gfs_readdir_state_t *st, uio_t *uiop, offset_t next,
 		edp->ed_reclen = (ushort_t)reclen;
 	} else {
 		/* XXX: This can change in the future. */
+		dp->d_off = next;
 		dp->d_reclen = (ushort_t)reclen;
 		dp->d_type = DT_DIR;
 		dp->d_namlen = namlen;
@@ -298,12 +298,6 @@ gfs_readdir_emit_int(gfs_readdir_state_t *st, uio_t *uiop, offset_t next,
 		return (EFAULT);
 
 	uiop->uio_loffset = next;
-	if (*cookies != NULL) {
-		**cookies = next;
-		(*cookies)++;
-		(*ncookies)--;
-		KASSERT(*ncookies >= 0, ("ncookies=%d", *ncookies));
-	}
 
 	return (0);
 }
@@ -322,7 +316,7 @@ gfs_readdir_emit_int(gfs_readdir_state_t *st, uio_t *uiop, offset_t next,
  */
 int
 gfs_readdir_emit(gfs_readdir_state_t *st, uio_t *uiop, offset_t voff,
-    ino64_t ino, const char *name, int eflags, int *ncookies, u_long **cookies)
+    ino64_t ino, const char *name, int eflags)
 {
 	offset_t off = (voff + 2) * st->grd_ureclen;
 
@@ -343,8 +337,7 @@ gfs_readdir_emit(gfs_readdir_state_t *st, uio_t *uiop, offset_t voff,
 	 * Inter-entry offsets are invalid, so we assume a record size of
 	 * grd_ureclen and explicitly set the offset appropriately.
 	 */
-	return (gfs_readdir_emit_int(st, uiop, off + st->grd_ureclen, ncookies,
-	    cookies));
+	return (gfs_readdir_emit_int(st, uiop, off + st->grd_ureclen));
 }
 
 #ifdef sun
@@ -373,8 +366,7 @@ gfs_readdir_emitn(gfs_readdir_state_t *st, uio_t *uiop, offset_t voff,
  * gfs_readdir_fini().
  */
 int
-gfs_readdir_pred(gfs_readdir_state_t *st, uio_t *uiop, offset_t *voffp,
-    int *ncookies, u_long **cookies)
+gfs_readdir_pred(gfs_readdir_state_t *st, uio_t *uiop, offset_t *voffp)
 {
 	offset_t off, voff;
 	int error;
@@ -387,11 +379,11 @@ top:
 	voff = off - 2;
 	if (off == 0) {
 		if ((error = gfs_readdir_emit(st, uiop, voff, st->grd_self,
-		    ".", 0, ncookies, cookies)) == 0)
+		    ".", 0)) == 0)
 			goto top;
 	} else if (off == 1) {
 		if ((error = gfs_readdir_emit(st, uiop, voff, st->grd_parent,
-		    "..", 0, ncookies, cookies)) == 0)
+		    "..", 0)) == 0)
 			goto top;
 	} else {
 		*voffp = voff;
@@ -1014,8 +1006,8 @@ out:
  *	Return 0 on success, or error on failure.
  */
 int
-gfs_dir_readdir(vnode_t *dvp, uio_t *uiop, int *eofp, int *ncookies,
-    u_long **cookies, void *data, cred_t *cr, int flags)
+gfs_dir_readdir(vnode_t *dvp, uio_t *uiop, int *eofp, void *data, cred_t *cr,
+    int flags)
 {
 	gfs_readdir_state_t gstate;
 	int error, eof = 0;
@@ -1031,15 +1023,15 @@ gfs_dir_readdir(vnode_t *dvp, uio_t *uiop, int *eofp, int *ncookies,
 	    pino, ino, flags)) != 0)
 		return (error);
 
-	while ((error = gfs_readdir_pred(&gstate, uiop, &off, ncookies,
-	    cookies)) == 0 && !eof) {
+	while ((error = gfs_readdir_pred(&gstate, uiop, &off)) == 0 &&
+	    !eof) {
 
 		if (off >= 0 && off < dp->gfsd_nstatic) {
 			ino = dp->gfsd_inode(dvp, off);
 
 			if ((error = gfs_readdir_emit(&gstate, uiop,
-			    off, ino, dp->gfsd_static[off].gfse_name, 0,
-			    ncookies, cookies)) != 0)
+			    off, ino, dp->gfsd_static[off].gfse_name, 0))
+			    != 0)
 				break;
 
 		} else if (dp->gfsd_readdir) {
@@ -1054,7 +1046,7 @@ gfs_dir_readdir(vnode_t *dvp, uio_t *uiop, int *eofp, int *ncookies,
 			next += dp->gfsd_nstatic + 2;
 
 			if ((error = gfs_readdir_emit_int(&gstate, uiop,
-			    next, ncookies, cookies)) != 0)
+			    next)) != 0)
 				break;
 		} else {
 			/*
@@ -1098,42 +1090,14 @@ gfs_vop_readdir(ap)
 		struct uio *a_uio;
 		struct ucred *a_cred;
 		int *a_eofflag;
-		int *ncookies;
-		u_long **a_cookies;
 	} */ *ap;
 {
 	vnode_t *vp = ap->a_vp;
 	uio_t *uiop = ap->a_uio;
 	cred_t *cr = ap->a_cred;
 	int *eofp = ap->a_eofflag;
-	int ncookies = 0;
-	u_long *cookies = NULL;
-	int error;
 
-	if (ap->a_ncookies) {
-		/*
-		 * Minimum entry size is dirent size and 1 byte for a file name.
-		 */
-		ncookies = uiop->uio_resid / (sizeof(struct dirent) - sizeof(((struct dirent *)NULL)->d_name) + 1);
-		cookies = malloc(ncookies * sizeof(u_long), M_TEMP, M_WAITOK);
-		*ap->a_cookies = cookies;
-		*ap->a_ncookies = ncookies;
-	}
-
-	error = gfs_dir_readdir(vp, uiop, eofp, &ncookies, &cookies, NULL,
-	    cr, 0);
-
-	if (error == 0) {
-		/* Subtract unused cookies */
-		if (ap->a_ncookies)
-			*ap->a_ncookies -= ncookies;
-	} else if (ap->a_ncookies) {
-		free(*ap->a_cookies, M_TEMP);
-		*ap->a_cookies = NULL;
-		*ap->a_ncookies = 0;
-	}
-
-	return (error);
+	return (gfs_dir_readdir(vp, uiop, eofp, NULL, cr, 0));
 }
 
 

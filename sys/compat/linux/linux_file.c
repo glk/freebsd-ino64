@@ -333,8 +333,7 @@ getdents_common(struct thread *td, struct linux_getdents64_args *args,
 	struct l_dirent *linux_dirent;
 	struct l_dirent64 *linux_dirent64;
 	int buflen, error, eofflag, nbytes, justone;
-	u_long *cookies = NULL, *cookiep;
-	int ncookies, vfslocked;
+	int vfslocked;
 
 	nbytes = args->count;
 	if (nbytes == 1) {
@@ -380,11 +379,6 @@ getdents_common(struct thread *td, struct linux_getdents64_args *args,
 	auio.uio_resid = buflen;
 	auio.uio_offset = off;
 
-	if (cookies) {
-		free(cookies, M_TEMP);
-		cookies = NULL;
-	}
-
 #ifdef MAC
 	/*
 	 * Do directory search MAC check using non-cached credentials.
@@ -392,8 +386,7 @@ getdents_common(struct thread *td, struct linux_getdents64_args *args,
 	if ((error = mac_vnode_check_readdir(td->td_ucred, vp)))
 		goto out;
 #endif /* MAC */
-	if ((error = VOP_READDIR(vp, &auio, fp->f_cred, &eofflag, &ncookies,
-		 &cookies)))
+	if ((error = VOP_READDIR(vp, &auio, fp->f_cred, &eofflag)))
 		goto out;
 
 	inp = buf;
@@ -402,28 +395,7 @@ getdents_common(struct thread *td, struct linux_getdents64_args *args,
 	if ((len = buflen - auio.uio_resid) <= 0)
 		goto eof;
 
-	cookiep = cookies;
-
-	if (cookies) {
-		/*
-		 * When using cookies, the vfs has the option of reading from
-		 * a different offset than that supplied (UFS truncates the
-		 * offset to a block boundary to make sure that it never reads
-		 * partway through a directory entry, even if the directory
-		 * has been compacted).
-		 */
-		while (len > 0 && ncookies > 0 && *cookiep <= off) {
-			bdp = (struct dirent *) inp;
-			len -= bdp->d_reclen;
-			inp += bdp->d_reclen;
-			cookiep++;
-			ncookies--;
-		}
-	}
-
 	while (len > 0) {
-		if (cookiep && ncookies == 0)
-			break;
 		bdp = (struct dirent *) inp;
 		reclen = bdp->d_reclen;
 		if (reclen & 3) {
@@ -433,12 +405,7 @@ getdents_common(struct thread *td, struct linux_getdents64_args *args,
 
 		if (bdp->d_fileno == 0) {
 			inp += reclen;
-			if (cookiep) {
-				off = *cookiep++;
-				ncookies--;
-			} else
-				off += reclen;
-
+			off = bdp->d_off;
 			len -= reclen;
 			continue;
 		}
@@ -465,9 +432,7 @@ getdents_common(struct thread *td, struct linux_getdents64_args *args,
 		if (is64bit) {
 			linux_dirent64 = (struct l_dirent64*)lbuf;
 			linux_dirent64->d_ino = bdp->d_fileno;
-			linux_dirent64->d_off = (cookiep)
-			    ? (l_off_t)*cookiep
-			    : (l_off_t)(off + reclen);
+			linux_dirent64->d_off = bdp->d_off;
 			linux_dirent64->d_reclen = (l_ushort)linuxreclen;
 			linux_dirent64->d_type = bdp->d_type;
 			strlcpy(linux_dirent64->d_name, bdp->d_name,
@@ -476,9 +441,7 @@ getdents_common(struct thread *td, struct linux_getdents64_args *args,
 		} else if (!justone) {
 			linux_dirent = (struct l_dirent*)lbuf;
 			linux_dirent->d_ino = bdp->d_fileno;
-			linux_dirent->d_off = (cookiep)
-			    ? (l_off_t)*cookiep
-			    : (l_off_t)(off + reclen);
+			linux_dirent->d_off = bdp->d_off;
 			linux_dirent->d_reclen = (l_ushort)linuxreclen;
 			/*
 			 * Copy d_type to last byte of l_dirent buffer
@@ -493,12 +456,7 @@ getdents_common(struct thread *td, struct linux_getdents64_args *args,
 			goto out;
 
 		inp += reclen;
-		if (cookiep) {
-			off = *cookiep++;
-			ncookies--;
-		} else
-			off += reclen;
-
+		off = bdp->d_off;
 		outp += linuxreclen;
 		resid -= linuxreclen;
 		len -= reclen;
@@ -519,9 +477,6 @@ eof:
 	td->td_retval[0] = nbytes - resid;
 
 out:
-	if (cookies)
-		free(cookies, M_TEMP);
-
 	VOP_UNLOCK(vp, 0);
 	VFS_UNLOCK_GIANT(vfslocked);
 	fdrop(fp, td);

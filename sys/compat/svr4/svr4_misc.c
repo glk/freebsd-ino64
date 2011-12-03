@@ -242,8 +242,6 @@ svr4_sys_getdents64(td, uap)
 	off_t off;
 	struct svr4_dirent64 svr4_dirent;
 	int buflen, error, eofflag, nbytes, justone, vfslocked;
-	u_long *cookies = NULL, *cookiep;
-	int ncookies;
 
 	DPRINTF(("svr4_sys_getdents64(%d, *, %d)\n",
 		uap->fd, uap->nbytes));
@@ -290,19 +288,13 @@ again:
 	auio.uio_resid = buflen;
 	auio.uio_offset = off;
 
-	if (cookies) {
-		free(cookies, M_TEMP);
-		cookies = NULL;
-	}
-
 #ifdef MAC
 	error = mac_vnode_check_readdir(td->td_ucred, vp);
 	if (error)
 		goto out;
 #endif
 
-	error = VOP_READDIR(vp, &auio, fp->f_cred, &eofflag,
-						&ncookies, &cookies);
+	error = VOP_READDIR(vp, &auio, fp->f_cred, &eofflag);
 	if (error) {
 		goto out;
 	}
@@ -314,28 +306,7 @@ again:
 		goto eof;
 	}
 
-	cookiep = cookies;
-
-	if (cookies) {
-		/*
-		 * When using cookies, the vfs has the option of reading from
-		 * a different offset than that supplied (UFS truncates the
-		 * offset to a block boundary to make sure that it never reads
-		 * partway through a directory entry, even if the directory
-		 * has been compacted).
-		 */
-		while (len > 0 && ncookies > 0 && *cookiep <= off) {
-			bdp = (struct dirent *) inp;
-			len -= bdp->d_reclen;
-			inp += bdp->d_reclen;
-			cookiep++;
-			ncookies--;
-		}
-	}
-
 	while (len > 0) {
-		if (cookiep && ncookies == 0)
-			break;
 		bdp = (struct dirent *) inp;
 		reclen = bdp->d_reclen;
 		if (reclen & 3) {
@@ -346,11 +317,7 @@ again:
   
 		if (bdp->d_fileno == 0) {
 	    		inp += reclen;
-			if (cookiep) {
-				off = *cookiep++;
-				ncookies--;
-			} else
-				off += reclen;
+			off = bdp->d_off;
 			len -= reclen;
 			continue;
 		}
@@ -367,18 +334,14 @@ again:
 			svr4_dirent.d_off = (svr4_off_t) svr4reclen;
 			svr4_dirent.d_reclen = (u_short) bdp->d_namlen;
 		} else {
-			svr4_dirent.d_off = (svr4_off_t)(off + reclen);
+			svr4_dirent.d_off = (svr4_off_t) bdp->d_off;
 			svr4_dirent.d_reclen = (u_short) svr4reclen;
 		}
 		strlcpy(svr4_dirent.d_name, bdp->d_name, sizeof(svr4_dirent.d_name));
 		if ((error = copyout((caddr_t)&svr4_dirent, outp, svr4reclen)))
 			goto out;
 		inp += reclen;
-		if (cookiep) {
-			off = *cookiep++;
-			ncookies--;
-		} else
-			off += reclen;
+		off = bdp->d_off;
 		outp += svr4reclen;
 		resid -= svr4reclen;
 		len -= reclen;
@@ -399,8 +362,6 @@ out:
 	VOP_UNLOCK(vp, 0);
 	VFS_UNLOCK_GIANT(vfslocked);
 	fdrop(fp, td);
-	if (cookies)
-		free(cookies, M_TEMP);
 	free(buf, M_TEMP);
 	return error;
 }
@@ -423,8 +384,7 @@ svr4_sys_getdents(td, uap)
 	struct svr4_dirent idb;
 	off_t off;		/* true file offset */
 	int buflen, error, eofflag, vfslocked;
-	u_long *cookiebuf = NULL, *cookie;
-	int ncookies = 0, *retval = td->td_retval;
+	int *retval = td->td_retval;
 
 	if (uap->nbytes < 0)
 		return (EINVAL);
@@ -471,8 +431,7 @@ again:
          * First we read into the malloc'ed buffer, then
          * we massage it into user space, one record at a time.
          */
-	error = VOP_READDIR(vp, &auio, fp->f_cred, &eofflag, &ncookies,
-	    &cookiebuf);
+	error = VOP_READDIR(vp, &auio, fp->f_cred, &eofflag);
 	if (error) {
 		goto out;
 	}
@@ -483,22 +442,19 @@ again:
 	if ((len = buflen - auio.uio_resid) == 0)
 		goto eof;
 
-	for (cookie = cookiebuf; len > 0; len -= reclen) {
+	for (; len > 0; len -= reclen) {
 		bdp = (struct dirent *)inp;
 		reclen = bdp->d_reclen;
 		if (reclen & 3)
 			panic("svr4_sys_getdents64: bad reclen");
-		if (cookie)
-			off = *cookie++; /* each entry points to the next */
-		else
-			off += reclen;
-		if ((off >> 32) != 0) {
+		if ((bdp->d_off >> 32) != 0) {
 			uprintf("svr4_sys_getdents64: dir offset too large for emulated program");
 			error = EINVAL;
 			goto out;
 		}
 		if (bdp->d_fileno == 0) {
 			inp += reclen;	/* it is a hole; squish it out */
+			off = bdp->d_off;
 			continue;
 		}
 		svr4_reclen = SVR4_RECLEN(&idb, bdp->d_namlen);
@@ -513,13 +469,14 @@ again:
 		 * the copyout() call).
 		 */
 		idb.d_ino = (svr4_ino_t)bdp->d_fileno;
-		idb.d_off = (svr4_off_t)off;
+		idb.d_off = (svr4_off_t)bdp->d_off;
 		idb.d_reclen = (u_short)svr4_reclen;
 		strlcpy(idb.d_name, bdp->d_name, sizeof(idb.d_name));
 		if ((error = copyout((caddr_t)&idb, outp, svr4_reclen)))
 			goto out;
 		/* advance past this real entry */
 		inp += reclen;
+		off = bdp->d_off;
 		/* advance output past SVR4-shaped entry */
 		outp += svr4_reclen;
 		resid -= svr4_reclen;
@@ -536,8 +493,6 @@ out:
 	VOP_UNLOCK(vp, 0);
 	VFS_UNLOCK_GIANT(vfslocked);
 	fdrop(fp, td);
-	if (cookiebuf)
-		free(cookiebuf, M_TEMP);
 	free(buf, M_TEMP);
 	return error;
 }

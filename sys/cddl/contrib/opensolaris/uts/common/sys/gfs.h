@@ -102,8 +102,8 @@ extern int gfs_dir_lookup(vnode_t *, const char *, vnode_t **, cred_t *,
     int, int *, pathname_t *);
 extern int gfs_vop_lookup(vnode_t *, char *, vnode_t **, pathname_t *,
     int, vnode_t *, cred_t *, caller_context_t *, int *, pathname_t *);
-extern int gfs_dir_readdir(vnode_t *, uio_t *, int *, int *, u_long **, void *,
-    cred_t *, int flags);
+extern int gfs_dir_readdir(vnode_t *, uio_t *, int *, void *, cred_t *,
+    int flags);
 
 #define	gfs_dir_lock(gd)	mutex_enter(&(gd)->gfsd_lock)
 #define	gfs_dir_unlock(gd)	mutex_exit(&(gd)->gfsd_lock)
@@ -132,9 +132,8 @@ typedef struct gfs_readdir_state {
 extern int gfs_readdir_init(gfs_readdir_state_t *, int, int, uio_t *, ino64_t,
     ino64_t, int);
 extern int gfs_readdir_emit(gfs_readdir_state_t *, uio_t *, offset_t, ino64_t,
-    const char *, int, int *, u_long **);
-extern int gfs_readdir_pred(gfs_readdir_state_t *, uio_t *, offset_t *, int *,
-    u_long **);
+    const char *, int);
+extern int gfs_readdir_pred(gfs_readdir_state_t *, uio_t *, offset_t *);
 extern int gfs_readdir_fini(gfs_readdir_state_t *, int, int *, int);
 extern int gfs_get_parent_ino(vnode_t *, cred_t *, caller_context_t *,
     ino64_t *, ino64_t *);

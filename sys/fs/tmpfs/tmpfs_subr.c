@@ -635,6 +635,7 @@ tmpfs_dir_getdotdent(struct tmpfs_node *node, struct uio *uio)
 	dent.d_namlen = 1;
 	dent.d_name[0] = '.';
 	dent.d_name[1] = '\0';
+	dent.d_off = TMPFS_DIRCOOKIE_DOTDOT;
 	dent.d_reclen = GENERIC_DIRSIZ(&dent);
 
 	if (dent.d_reclen > uio->uio_resid)
@@ -664,6 +665,7 @@ tmpfs_dir_getdotdotdent(struct tmpfs_node *node, struct uio *uio)
 {
 	int error;
 	struct dirent dent;
+	struct tmpfs_dirent *de;
 
 	TMPFS_VALIDATE_DIR(node);
 	MPASS(uio->uio_offset == TMPFS_DIRCOOKIE_DOTDOT);
@@ -690,16 +692,14 @@ tmpfs_dir_getdotdotdent(struct tmpfs_node *node, struct uio *uio)
 	if (dent.d_reclen > uio->uio_resid)
 		error = -1;
 	else {
+		de = TAILQ_FIRST(&node->tn_dir.tn_dirhead);
+		if (de == NULL)
+			dent.d_off = TMPFS_DIRCOOKIE_EOF;
+		else
+			dent.d_off = tmpfs_dircookie(de);
 		error = uiomove(&dent, dent.d_reclen, uio);
-		if (error == 0) {
-			struct tmpfs_dirent *de;
-
-			de = TAILQ_FIRST(&node->tn_dir.tn_dirhead);
-			if (de == NULL)
-				uio->uio_offset = TMPFS_DIRCOOKIE_EOF;
-			else
-				uio->uio_offset = tmpfs_dircookie(de);
-		}
+		if (error == 0)
+			uio->uio_offset = dent.d_off;
 	}
 
 	node->tn_status |= TMPFS_NODE_ACCESSED;
@@ -825,6 +825,11 @@ tmpfs_dir_getdents(struct tmpfs_node *node, struct uio *uio, off_t *cntp)
 
 		/* Copy the new dirent structure into the output buffer and
 		 * advance pointers. */
+		if (TAILQ_NEXT(de, td_entries) != NULL)
+			d.d_off = tmpfs_dircookie(
+			    TAILQ_NEXT(de, td_entries));
+		else
+			d.d_off = TMPFS_DIRCOOKIE_EOF;
 		error = uiomove(&d, d.d_reclen, uio);
 		if (error == 0) {
 			(*cntp)++;

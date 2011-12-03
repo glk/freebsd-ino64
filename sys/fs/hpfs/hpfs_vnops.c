@@ -58,7 +58,7 @@
 #include <fs/hpfs/hpfs_ioctl.h>
 
 static int	hpfs_de_uiomove(struct hpfsmount *, struct hpfsdirent *,
-				     struct uio *);
+				     int num, struct uio *);
 static vop_ioctl_t	hpfs_ioctl;
 static vop_read_t	hpfs_read;
 static vop_write_t	hpfs_write;
@@ -769,6 +769,7 @@ static int
 hpfs_de_uiomove (
 	struct hpfsmount *hpmp,
 	struct hpfsdirent *dep,
+	int num,
 	struct uio *uio)
 {
 	struct dirent cde;
@@ -787,6 +788,7 @@ hpfs_de_uiomove (
 	cde.d_fileno = dep->de_fnode;
 	cde.d_type = (dep->de_flag & DE_DIR) ? DT_DIR : DT_REG;
 	cde.d_reclen = sizeof(struct dirent);
+	cde.d_off = (num + 1) * sizeof(struct dirent);
 
 	error = uiomove((char *)&cde, sizeof(struct dirent), uio);
 	if (error)
@@ -799,6 +801,7 @@ hpfs_de_uiomove (
 
 static struct dirent hpfs_de_dot = {
 	.d_fileno = 0,
+	.d_off = sizeof(struct dirent),
 	.d_reclen = sizeof(struct dirent),
 	.d_type = DT_DIR,
 	.d_namlen = 1,
@@ -806,6 +809,7 @@ static struct dirent hpfs_de_dot = {
 };
 static struct dirent hpfs_de_dotdot = {
 	.d_fileno = 0,
+	.d_off = sizeof(struct dirent) * 2,
 	.d_reclen = sizeof(struct dirent),
 	.d_type = DT_DIR,
 	.d_namlen = 2,
@@ -818,15 +822,14 @@ hpfs_readdir(ap)
 		struct vnode *a_vp;
 		struct uio *a_uio;
 		struct ucred *a_cred;
-		int *a_ncookies;
-		u_int **cookies;
+		int *a_eofflag;
 	} */ *ap;
 {
 	register struct vnode *vp = ap->a_vp;
 	register struct hpfsnode *hp = VTOHP(vp);
 	struct hpfsmount *hpmp = hp->h_hpmp;
 	struct uio *uio = ap->a_uio;
-	int ncookies = 0, i, num, cnum;
+	int num, cnum;
 	int error = 0;
 	off_t off;
 	struct buf *bp;
@@ -847,8 +850,6 @@ hpfs_readdir(ap)
 		if(error) {
 			return (error);
 		}
-
-		ncookies ++;
 	}
 
 	if( uio->uio_offset < 2 * sizeof(struct dirent) ) {
@@ -860,8 +861,6 @@ hpfs_readdir(ap)
 		if(error) {
 			return (error);
 		}
-
-		ncookies ++;
 	}
 
 	num = uio->uio_offset / sizeof(struct dirent) - 2;
@@ -911,12 +910,11 @@ dive:
 						goto readdone;
 					}
 
-					error = hpfs_de_uiomove(hpmp, dep, uio);
+					error = hpfs_de_uiomove(hpmp, dep, cnum, uio);
 					if (error) {
 						brelse (bp);
 						return (error);
 					}
-					ncookies++;
 
 					if (uio->uio_resid < sizeof(struct dirent)) {
 						brelse(bp);
@@ -953,12 +951,11 @@ dive:
 					goto readdone;
 				}
 
-				error = hpfs_de_uiomove(hpmp, dep, uio);
+				error = hpfs_de_uiomove(hpmp, dep, cnum, uio);
 				if (error) {
 					brelse (bp);
 					return (error);
 				}
-				ncookies++;
 				
 				if (uio->uio_resid < sizeof(struct dirent)) {
 					brelse(bp);
@@ -999,29 +996,6 @@ blockdone:
 
 readdone:
 	dprintf(("[readdone]\n"));
-	if (!error && ap->a_ncookies != NULL) {
-		struct dirent* dpStart;
-		struct dirent* dp;
-		u_long *cookies;
-		u_long *cookiep;
-
-		dprintf(("%d cookies, ",ncookies));
-		if (uio->uio_segflg != UIO_SYSSPACE || uio->uio_iovcnt != 1)
-			panic("hpfs_readdir: unexpected uio from NFS server");
-		dpStart = (struct dirent *)
-		     ((caddr_t)uio->uio_iov->iov_base -
-			 (uio->uio_offset - off));
-		cookies = malloc(ncookies * sizeof(u_long),
-		       M_TEMP, M_WAITOK);
-		for (dp = dpStart, cookiep = cookies, i=0;
-		     i < ncookies;
-		     dp = (struct dirent *)((caddr_t) dp + dp->d_reclen), i++) {
-			off += dp->d_reclen;
-			*cookiep++ = (u_int) off;
-		}
-		*ap->a_ncookies = ncookies;
-		*ap->a_cookies = cookies;
-	}
 
 	return (0);
 }

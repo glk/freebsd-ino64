@@ -383,8 +383,6 @@ ufs_extattr_iterate_directory(struct ufsmount *ump, struct vnode *dvp,
 	vargs.a_uio = &auio;
 	vargs.a_cred = td->td_ucred;
 	vargs.a_eofflag = &eofflag;
-	vargs.a_ncookies = NULL;
-	vargs.a_cookies = NULL;
 
 	while (!eofflag) {
 		auio.uio_resid = DIRBLKSIZ;

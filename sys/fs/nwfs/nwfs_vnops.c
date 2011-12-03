@@ -694,8 +694,6 @@ nwfs_readdir(ap)
 		struct uio *a_uio;
 		struct ucred *a_cred;
 		int *a_eofflag;
-		u_long *a_cookies;
-		int a_ncookies;
 	} */ *ap;
 {
 	struct vnode *vp = ap->a_vp;
@@ -704,10 +702,6 @@ nwfs_readdir(ap)
 
 	if (vp->v_type != VDIR)
 		return (EPERM);
-	if (ap->a_ncookies) {
-		printf("nwfs_readdir: no support for cookies now...");
-		return (EOPNOTSUPP);
-	}
 
 	error = nwfs_readvnode(vp, uio, ap->a_cred);
 	return error;

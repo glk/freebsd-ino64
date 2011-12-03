@@ -1302,8 +1302,6 @@ tmpfs_readdir(struct vop_readdir_args *v)
 	struct vnode *vp = v->a_vp;
 	struct uio *uio = v->a_uio;
 	int *eofflag = v->a_eofflag;
-	u_long **cookies = v->a_cookies;
-	int *ncookies = v->a_ncookies;
 
 	int error;
 	off_t startoff;
@@ -1343,41 +1341,6 @@ outok:
 	if (eofflag != NULL)
 		*eofflag =
 		    (error == 0 && uio->uio_offset == TMPFS_DIRCOOKIE_EOF);
-
-	/* Update NFS-related variables. */
-	if (error == 0 && cookies != NULL && ncookies != NULL) {
-		off_t i;
-		off_t off = startoff;
-		struct tmpfs_dirent *de = NULL;
-
-		*ncookies = cnt;
-		*cookies = malloc(cnt * sizeof(off_t), M_TEMP, M_WAITOK);
-
-		for (i = 0; i < cnt; i++) {
-			MPASS(off != TMPFS_DIRCOOKIE_EOF);
-			if (off == TMPFS_DIRCOOKIE_DOT) {
-				off = TMPFS_DIRCOOKIE_DOTDOT;
-			} else {
-				if (off == TMPFS_DIRCOOKIE_DOTDOT) {
-					de = TAILQ_FIRST(&node->tn_dir.tn_dirhead);
-				} else if (de != NULL) {
-					de = TAILQ_NEXT(de, td_entries);
-				} else {
-					de = tmpfs_dir_lookupbycookie(node,
-					    off);
-					MPASS(de != NULL);
-					de = TAILQ_NEXT(de, td_entries);
-				}
-				if (de == NULL)
-					off = TMPFS_DIRCOOKIE_EOF;
-				else
-					off = tmpfs_dircookie(de);
-			}
-
-			(*cookies)[i] = off;
-		}
-		MPASS(uio->uio_offset == off);
-	}
 
 	return error;
 }

@@ -1170,8 +1170,6 @@ zfsctl_shares_readdir(ap)
 		struct uio *a_uio;
 		struct ucred *a_cred;
 		int *a_eofflag;
-		int *a_ncookies;
-		u_long **a_cookies;
 	} */ *ap;
 {
 	vnode_t *vp = ap->a_vp;
@@ -1190,7 +1188,7 @@ zfsctl_shares_readdir(ap)
 	}
 	if ((error = zfs_zget(zfsvfs, zfsvfs->z_shares_dir, &dzp)) == 0) {
 		vn_lock(ZTOV(dzp), LK_SHARED | LK_RETRY);
-		error = VOP_READDIR(ZTOV(dzp), uiop, cr, eofp, ap->a_ncookies, ap->a_cookies);
+		error = VOP_READDIR(ZTOV(dzp), uiop, cr, eofp);
 		VN_URELE(ZTOV(dzp));
 	} else {
 		*eofp = 1;

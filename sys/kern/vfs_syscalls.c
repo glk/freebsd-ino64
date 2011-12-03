@@ -4313,8 +4313,7 @@ unionread:
 	error = mac_vnode_check_readdir(td->td_ucred, vp);
 	if (error == 0)
 #endif
-		error = VOP_READDIR(vp, &auio, fp->f_cred, &eofflag, NULL,
-		    NULL);
+		error = VOP_READDIR(vp, &auio, fp->f_cred, &eofflag);
 	fp->f_offset = auio.uio_offset;
 	if (error) {
 		VOP_UNLOCK(vp, 0);

@@ -4389,32 +4389,22 @@ filt_vfsvnode(struct knote *kn, long hint)
 }
 
 int
-vfs_read_dirent(struct vop_readdir_args *ap, struct dirent *dp, off_t off)
+vfs_read_dirent(struct vop_readdir_args *ap, struct dirent *dp)
 {
 	int error;
 
-	if (dp->d_reclen > ap->a_uio->uio_resid)
-		return (ENAMETOOLONG);
-	error = uiomove(dp, dp->d_reclen, ap->a_uio);
-	if (error) {
-		if (ap->a_ncookies != NULL) {
-			if (ap->a_cookies != NULL)
-				free(ap->a_cookies, M_TEMP);
-			ap->a_cookies = NULL;
-			*ap->a_ncookies = 0;
-		}
-		return (error);
+	KASSERT(dp->d_namlen <= MAXNAMLEN &&
+	    dp->d_name[dp->d_namlen] == '\0' &&
+	    dp->d_reclen >= GENERIC_DIRSIZ(dp),
+	    ("invalid dirent"));
+
+	if (dp->d_reclen > ap->a_uio->uio_resid) {
+		ap->a_eofflag = 0;
+		return (-1);
 	}
-	if (ap->a_ncookies == NULL)
-		return (0);
 
-	KASSERT(ap->a_cookies,
-	    ("NULL ap->a_cookies value with non-NULL ap->a_ncookies!"));
-
-	*ap->a_cookies = realloc(*ap->a_cookies,
-	    (*ap->a_ncookies + 1) * sizeof(u_long), M_TEMP, M_WAITOK | M_ZERO);
-	(*ap->a_cookies)[*ap->a_ncookies] = off;
-	return (0);
+	error = uiomove(dp, dp->d_reclen, ap->a_uio);
+	return (error);
 }
 
 /*

@@ -278,8 +278,7 @@ get_next_dirent(struct vnode *vp, struct dirent **dpp, char *dirbuf,
 		error = mac_vnode_check_readdir(td->td_ucred, vp);
 		if (error == 0)
 #endif
-			error = VOP_READDIR(vp, &uio, td->td_ucred, eofflag,
-		    		NULL, NULL);
+			error = VOP_READDIR(vp, &uio, td->td_ucred, eofflag);
 		if (error)
 			return (error);
 

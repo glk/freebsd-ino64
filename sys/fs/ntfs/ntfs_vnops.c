@@ -477,8 +477,6 @@ ntfs_readdir(ap)
 		struct vnode *a_vp;
 		struct uio *a_uio;
 		struct ucred *a_cred;
-		int *a_ncookies;
-		u_int **cookies;
 	} */ *ap;
 {
 	register struct vnode *vp = ap->a_vp;
@@ -489,7 +487,6 @@ ntfs_readdir(ap)
 	int i, j, error = 0;
 	wchar c;
 	u_int32_t faked = 0, num;
-	int ncookies = 0;
 	struct dirent cde;
 	off_t off;
 
@@ -497,32 +494,35 @@ ntfs_readdir(ap)
 	    (uintmax_t)ip->i_number, (intmax_t)uio->uio_offset,
 	    uio->uio_resid));
 
-	off = uio->uio_offset;
+	if (uio->uio_offset % sizeof(struct dirent) != 0 ||
+	    uio->uio_resid < sizeof(struct dirent))
+		return (EINVAL);
+
+	faked = (ip->i_number == NTFS_ROOTINO) ? 1 : 2;
 
 	/* Simulate . in every dir except ROOT */
-	if( ip->i_number != NTFS_ROOTINO ) {
+	if( ip->i_number != NTFS_ROOTINO &&
+	   uio->uio_offset < sizeof(struct dirent) ) {
 		struct dirent dot = {
 			.d_fileno = NTFS_ROOTINO,
+			.d_off = sizeof(struct dirent),
 			.d_reclen = sizeof(struct dirent),
 			.d_type = DT_DIR,
 			.d_namlen = 1,
 			.d_name = "."
 		};
 
-		if( uio->uio_offset < sizeof(struct dirent) ) {
-			dot.d_fileno = ip->i_number;
-			error = uiomove((char *)&dot,sizeof(struct dirent),uio);
-			if(error)
-				return (error);
-
-			ncookies ++;
-		}
+		dot.d_fileno = ip->i_number;
+		error = uiomove((char *)&dot,sizeof(struct dirent),uio);
+		if(error)
+			return (error);
 	}
 
 	/* Simulate .. in every dir including ROOT */
-	if( uio->uio_offset < 2 * sizeof(struct dirent) ) {
+	if( uio->uio_offset < faked * sizeof(struct dirent) ) {
 		struct dirent dotdot = {
 			.d_fileno = NTFS_ROOTINO,
+			.d_off = faked * sizeof(struct dirent),
 			.d_reclen = sizeof(struct dirent),
 			.d_type = DT_DIR,
 			.d_namlen = 2,
@@ -532,12 +532,10 @@ ntfs_readdir(ap)
 		error = uiomove((char *)&dotdot,sizeof(struct dirent),uio);
 		if(error)
 			return (error);
-
-		ncookies ++;
 	}
 
-	faked = (ip->i_number == NTFS_ROOTINO) ? 1 : 2;
 	num = uio->uio_offset / sizeof(struct dirent) - faked;
+	off = uio->uio_offset;
 
 	while( uio->uio_resid >= sizeof(struct dirent) ) {
 		struct attr_indexentry *iep;
@@ -553,8 +551,11 @@ ntfs_readdir(ap)
 		for(; !(iep->ie_flag & NTFS_IEFLAG_LAST) && (uio->uio_resid >= sizeof(struct dirent));
 			iep = NTFS_NEXTREC(iep, struct attr_indexentry *))
 		{
-			if(!ntfs_isnamepermitted(ntmp,iep))
+			off += sizeof(struct dirent);
+
+			if(!ntfs_isnamepermitted(ntmp,iep)) {
 				continue;
+			}
 
 			for(i=0, j=0; i<iep->ie_fnamelen; i++, j++) {
 				c = NTFS_U28(iep->ie_fname[i]);
@@ -568,6 +569,7 @@ ntfs_readdir(ap)
 				iep->ie_flag));
 			cde.d_namlen = j;
 			cde.d_fileno = iep->ie_number;
+			cde.d_off = off;
 			cde.d_type = (iep->ie_fflag & NTFS_FFLAG_DIR) ? DT_DIR : DT_REG;
 			cde.d_reclen = sizeof(struct dirent);
 			dprintf(("%s\n", (cde.d_type == DT_DIR) ? "dir":"reg"));
@@ -575,40 +577,15 @@ ntfs_readdir(ap)
 			error = uiomove((char *)&cde, sizeof(struct dirent), uio);
 			if(error)
 				return (error);
-
-			ncookies++;
 			num++;
 		}
 	}
 
-	dprintf(("ntfs_readdir: %d entries (%jd bytes) read\n",
-	    ncookies, (intmax_t)(uio->uio_offset - off)));
+	uio->uio_offset = off;
+
 	dprintf(("ntfs_readdir: off: %jd resid: %zd\n",
 	    (intmax_t)uio->uio_offset, uio->uio_resid));
 
-	if (!error && ap->a_ncookies != NULL) {
-		struct dirent* dpStart;
-		struct dirent* dp;
-		u_long *cookies;
-		u_long *cookiep;
-
-		ddprintf(("ntfs_readdir: %d cookies\n",ncookies));
-		if (uio->uio_segflg != UIO_SYSSPACE || uio->uio_iovcnt != 1)
-			panic("ntfs_readdir: unexpected uio from NFS server");
-		dpStart = (struct dirent *)
-		     ((caddr_t)uio->uio_iov->iov_base -
-			 (uio->uio_offset - off));
-		cookies = malloc(ncookies * sizeof(u_long),
-		       M_TEMP, M_WAITOK);
-		for (dp = dpStart, cookiep = cookies, i=0;
-		     i < ncookies;
-		     dp = (struct dirent *)((caddr_t) dp + dp->d_reclen), i++) {
-			off += dp->d_reclen;
-			*cookiep++ = (u_int) off;
-		}
-		*ap->a_ncookies = ncookies;
-		*ap->a_cookies = cookies;
-	}
 /*
 	if (ap->a_eofflag)
 	    *ap->a_eofflag = VTONT(ap->a_vp)->i_size <= uio->uio_offset;

@@ -211,8 +211,7 @@ unionread:
 		error = mac_vnode_check_readdir(td->td_ucred, uvp);
 		if (error == 0)
 #endif /* MAC */
-			error = VOP_READDIR(uvp, &uio, td->td_ucred, &eofflag,
-			    0, 0);
+			error = VOP_READDIR(uvp, &uio, td->td_ucred, &eofflag);
 
 		off = uio.uio_offset;
 

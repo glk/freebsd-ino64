@@ -2297,7 +2297,7 @@ out:
  */
 /* ARGSUSED */
 static int
-zfs_readdir(vnode_t *vp, uio_t *uio, cred_t *cr, int *eofp, int *ncookies, u_long **cookies)
+zfs_readdir(vnode_t *vp, uio_t *uio, cred_t *cr, int *eofp)
 {
 	znode_t		*zp = VTOZ(vp);
 	iovec_t		*iovp;
@@ -2318,8 +2318,6 @@ zfs_readdir(vnode_t *vp, uio_t *uio, cred_t *cr, int *eofp, int *ncookies, u_lon
 	uint8_t		prefetch;
 	boolean_t	check_sysattrs;
 	uint8_t		type;
-	int		ncooks;
-	u_long		*cooks = NULL;
 	int		flags = 0;
 
 	ZFS_ENTER(zfsvfs);
@@ -2389,15 +2387,6 @@ zfs_readdir(vnode_t *vp, uio_t *uio, cred_t *cr, int *eofp, int *ncookies, u_lon
 	}
 	eodp = (struct edirent *)odp;
 
-	if (ncookies != NULL) {
-		/*
-		 * Minimum entry size is dirent size and 1 byte for a file name.
-		 */
-		ncooks = uio->uio_resid / (sizeof(struct dirent) - sizeof(((struct dirent *)NULL)->d_name) + 1);
-		cooks = malloc(ncooks * sizeof(u_long), M_TEMP, M_WAITOK);
-		*cookies = cooks;
-		*ncookies = ncooks;
-	}
 	/*
 	 * If this VFS supports the system attribute view interface; and
 	 * we're looking at an extended attribute directory; and we care
@@ -2529,6 +2518,8 @@ zfs_readdir(vnode_t *vp, uio_t *uio, cred_t *cr, int *eofp, int *ncookies, u_lon
 			 */
 			odp->d_ino = objnum;
 			odp->d_reclen = reclen;
+			/* NOTE: d_off is the offset for the *next* entry */
+			next = &(odp->d_off);
 			odp->d_namlen = strlen(zap.za_name);
 			(void) strlcpy(odp->d_name, zap.za_name, odp->d_namlen + 1);
 			odp->d_type = type;
@@ -2553,17 +2544,10 @@ zfs_readdir(vnode_t *vp, uio_t *uio, cred_t *cr, int *eofp, int *ncookies, u_lon
 			offset += 1;
 		}
 
-		if (cooks != NULL) {
-			*cooks++ = offset;
-			ncooks--;
-			KASSERT(ncooks >= 0, ("ncookies=%d", ncooks));
-		}
+		if (next)
+			*next = offset;
 	}
 	zp->z_zn_prefetch = B_FALSE; /* a lookup will re-enable pre-fetching */
-
-	/* Subtract unused cookies */
-	if (ncookies != NULL)
-		*ncookies -= ncooks;
 
 	if (uio->uio_segflg == UIO_SYSSPACE && uio->uio_iovcnt == 1) {
 		iovp->iov_base += outcount;
@@ -2588,11 +2572,6 @@ update:
 
 	uio->uio_loffset = offset;
 	ZFS_EXIT(zfsvfs);
-	if (error != 0 && cookies != NULL) {
-		free(*cookies, M_TEMP);
-		*cookies = NULL;
-		*ncookies = 0;
-	}
 	return (error);
 }
 
@@ -5837,13 +5816,10 @@ zfs_freebsd_readdir(ap)
 		struct uio *a_uio;
 		struct ucred *a_cred;
 		int *a_eofflag;
-		int *a_ncookies;
-		u_long **a_cookies;
 	} */ *ap;
 {
 
-	return (zfs_readdir(ap->a_vp, ap->a_uio, ap->a_cred, ap->a_eofflag,
-	    ap->a_ncookies, ap->a_cookies));
+	return (zfs_readdir(ap->a_vp, ap->a_uio, ap->a_cred, ap->a_eofflag));
 }
 
 static int
@@ -6562,7 +6538,7 @@ vop_listextattr {
 		aiov.iov_base = (void *)dirbuf;
 		aiov.iov_len = sizeof(dirbuf);
 		auio.uio_resid = sizeof(dirbuf);
-		error = VOP_READDIR(vp, &auio, ap->a_cred, &eof, NULL, NULL);
+		error = VOP_READDIR(vp, &auio, ap->a_cred, &eof);
 		done = sizeof(dirbuf) - auio.uio_resid;
 		if (error != 0)
 			break;

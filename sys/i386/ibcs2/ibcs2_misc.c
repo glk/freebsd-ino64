@@ -330,10 +330,8 @@ ibcs2_getdents(td, uap)
 	struct uio auio;
 	struct iovec aiov;
 	struct ibcs2_dirent idb;
-	off_t off;			/* true file offset */
+	off_t off;
 	int buflen, error, eofflag, vfslocked;
-	u_long *cookies = NULL, *cookiep;
-	int ncookies;
 #define	BSD_DIRENT(cp)		((struct dirent *)(cp))
 #define	IBCS2_RECLEN(reclen)	(reclen + sizeof(u_short))
 
@@ -369,11 +367,6 @@ again:
 	auio.uio_resid = buflen;
 	auio.uio_offset = off;
 
-	if (cookies) {
-		free(cookies, M_TEMP);
-		cookies = NULL;
-	}
-
 #ifdef MAC
 	error = mac_vnode_check_readdir(td->td_ucred, vp);
 	if (error)
@@ -384,7 +377,7 @@ again:
 	 * First we read into the malloc'ed buffer, then
 	 * we massage it into user space, one record at a time.
 	 */
-	if ((error = VOP_READDIR(vp, &auio, fp->f_cred, &eofflag, &ncookies, &cookies)) != 0)
+	if ((error = VOP_READDIR(vp, &auio, fp->f_cred, &eofflag)) != 0)
 		goto out;
 	inp = buf;
 	outp = uap->buf;
@@ -392,27 +385,7 @@ again:
 	if ((len = buflen - auio.uio_resid) <= 0)
 		goto eof;
 
-	cookiep = cookies;
-
-	if (cookies) {
-		/*
-		 * When using cookies, the vfs has the option of reading from
-		 * a different offset than that supplied (UFS truncates the
-		 * offset to a block boundary to make sure that it never reads
-		 * partway through a directory entry, even if the directory
-		 * has been compacted).
-		 */
-		while (len > 0 && ncookies > 0 && *cookiep <= off) {
-			len -= BSD_DIRENT(inp)->d_reclen;
-			inp += BSD_DIRENT(inp)->d_reclen;
-			cookiep++;
-			ncookies--;
-		}
-	}
-
 	for (; len > 0; len -= reclen) {
-		if (cookiep && ncookies == 0)
-			break;
 		reclen = BSD_DIRENT(inp)->d_reclen;
 		if (reclen & 3) {
 		        printf("ibcs2_getdents: reclen=%d\n", reclen);
@@ -420,12 +393,8 @@ again:
 			goto out;
 		}
 		if (BSD_DIRENT(inp)->d_fileno == 0) {
+			off = BSD_DIRENT(inp)->d_off;
 			inp += reclen;	/* it is a hole; squish it out */
-			if (cookiep) {
-				off = *cookiep++;
-				ncookies--;
-			} else
-				off += reclen;
 			continue;
 		}
 		if (reclen > len || resid < IBCS2_RECLEN(reclen)) {
@@ -439,18 +408,14 @@ again:
 		 * the copyout() call).
 		 */
 		idb.d_ino = (ibcs2_ino_t)BSD_DIRENT(inp)->d_fileno;
-		idb.d_off = (ibcs2_off_t)off;
+		idb.d_off = (ibcs2_off_t)BSD_DIRENT(inp)->d_off;
 		idb.d_reclen = (u_short)IBCS2_RECLEN(reclen);
 		if ((error = copyout((caddr_t)&idb, outp, 10)) != 0 ||
 		    (error = copyout(BSD_DIRENT(inp)->d_name, outp + 10,
 				     BSD_DIRENT(inp)->d_namlen + 1)) != 0)
 			goto out;
 		/* advance past this real entry */
-		if (cookiep) {
-			off = *cookiep++;
-			ncookies--;
-		} else
-			off += reclen;
+		off = BSD_DIRENT(inp)->d_off;
 		inp += reclen;
 		/* advance output past iBCS2-shaped entry */
 		outp += IBCS2_RECLEN(reclen);
@@ -466,8 +431,6 @@ out:
 	VOP_UNLOCK(vp, 0);
 	VFS_UNLOCK_GIANT(vfslocked);
 	fdrop(fp, td);
-	if (cookies)
-		free(cookies, M_TEMP);
 	free(buf, M_TEMP);
 	return (error);
 }
@@ -489,10 +452,8 @@ ibcs2_read(td, uap)
 		ibcs2_ino_t ino;
 		char name[14];
 	} idb;
-	off_t off;			/* true file offset */
+	off_t off;
 	int buflen, error, eofflag, size, vfslocked;
-	u_long *cookies = NULL, *cookiep;
-	int ncookies;
 
 	if ((error = getvnode(td->td_proc->p_fd, uap->fd,
 	    CAP_READ | CAP_SEEK, &fp)) != 0) {
@@ -532,11 +493,6 @@ again:
 	auio.uio_resid = buflen;
 	auio.uio_offset = off;
 
-	if (cookies) {
-		free(cookies, M_TEMP);
-		cookies = NULL;
-	}
-
 #ifdef MAC
 	error = mac_vnode_check_readdir(td->td_ucred, vp);
 	if (error)
@@ -547,7 +503,7 @@ again:
 	 * First we read into the malloc'ed buffer, then
 	 * we massage it into user space, one record at a time.
 	 */
-	if ((error = VOP_READDIR(vp, &auio, fp->f_cred, &eofflag, &ncookies, &cookies)) != 0) {
+	if ((error = VOP_READDIR(vp, &auio, fp->f_cred, &eofflag)) != 0) {
 		DPRINTF(("VOP_READDIR failed: %d\n", error));
 		goto out;
 	}
@@ -557,27 +513,7 @@ again:
 	if ((len = buflen - auio.uio_resid) <= 0)
 		goto eof;
 
-	cookiep = cookies;
-
-	if (cookies) {
-		/*
-		 * When using cookies, the vfs has the option of reading from
-		 * a different offset than that supplied (UFS truncates the
-		 * offset to a block boundary to make sure that it never reads
-		 * partway through a directory entry, even if the directory
-		 * has been compacted).
-		 */
-		while (len > 0 && ncookies > 0 && *cookiep <= off) {
-			len -= BSD_DIRENT(inp)->d_reclen;
-			inp += BSD_DIRENT(inp)->d_reclen;
-			cookiep++;
-			ncookies--;
-		}
-	}
-
 	for (; len > 0 && resid > 0; len -= reclen) {
-		if (cookiep && ncookies == 0)
-			break;
 		reclen = BSD_DIRENT(inp)->d_reclen;
 		if (reclen & 3) {
 		        printf("ibcs2_read: reclen=%d\n", reclen);
@@ -585,12 +521,8 @@ again:
 			goto out;
 		}
 		if (BSD_DIRENT(inp)->d_fileno == 0) {
+			off = BSD_DIRENT(inp)->d_off;
 			inp += reclen;	/* it is a hole; squish it out */
-			if (cookiep) {
-				off = *cookiep++;
-				ncookies--;
-			} else
-				off += reclen;
 			continue;
 		}
 		if (reclen > len || resid < sizeof(struct ibcs2_direct)) {
@@ -612,12 +544,7 @@ again:
 		bzero(idb.name + size, 14 - size);
 		if ((error = copyout(&idb, outp, sizeof(struct ibcs2_direct))) != 0)
 			goto out;
-		/* advance past this real entry */
-		if (cookiep) {
-			off = *cookiep++;
-			ncookies--;
-		} else
-			off += reclen;
+		off = BSD_DIRENT(inp)->d_off;
 		inp += reclen;
 		/* advance output past iBCS2-shaped entry */
 		outp += sizeof(struct ibcs2_direct);
@@ -633,8 +560,6 @@ out:
 	VOP_UNLOCK(vp, 0);
 	VFS_UNLOCK_GIANT(vfslocked);
 	fdrop(fp, td);
-	if (cookies)
-		free(cookies, M_TEMP);
 	free(buf, M_TEMP);
 	return (error);
 }

@@ -589,33 +589,6 @@ udf_cmpname(char *cs0string, char *cmpname, int cs0len, int cmplen, struct udf_m
 	return (error);
 }
 
-struct udf_uiodir {
-	struct dirent *dirent;
-	u_long *cookies;
-	int ncookies;
-	int acookies;
-	int eofflag;
-};
-
-static int
-udf_uiodir(struct udf_uiodir *uiodir, int de_size, struct uio *uio, long cookie)
-{
-	if (uiodir->cookies != NULL) {
-		if (++uiodir->acookies > uiodir->ncookies) {
-			uiodir->eofflag = 0;
-			return (-1);
-		}
-		*uiodir->cookies++ = cookie;
-	}
-
-	if (uio->uio_resid < de_size) {
-		uiodir->eofflag = 0;
-		return (-1);
-	}
-
-	return (uiomove(uiodir->dirent, de_size, uio));
-}
-
 static struct udf_dirstream *
 udf_opendir(struct udf_node *node, int offset, int fsize, struct udf_mnt *udfmp)
 {
@@ -770,34 +743,21 @@ udf_readdir(struct vop_readdir_args *a)
 	struct udf_node *node;
 	struct udf_mnt *udfmp;
 	struct fileid_desc *fid;
-	struct udf_uiodir uiodir;
 	struct udf_dirstream *ds;
-	u_long *cookies = NULL;
-	int ncookies;
 	int error = 0;
+	int dotoff = 0;
 
 	vp = a->a_vp;
 	uio = a->a_uio;
 	node = VTON(vp);
 	udfmp = node->udfmp;
-	uiodir.eofflag = 1;
 
-	if (a->a_ncookies != NULL) {
-		/*
-		 * Guess how many entries are needed.  If we run out, this
-		 * function will be called again and thing will pick up were
-		 * it left off.
-		 */
-		ncookies = uio->uio_resid / 8;
-		cookies = malloc(sizeof(u_long) * ncookies,
-		    M_TEMP, M_WAITOK);
-		if (cookies == NULL)
-			return (ENOMEM);
-		uiodir.ncookies = ncookies;
-		uiodir.cookies = cookies;
-		uiodir.acookies = 0;
-	} else {
-		uiodir.cookies = NULL;
+	if (a->a_eofflag != NULL)
+		*a->a_eofflag = 1;	/* reset by vfs_read_dirent */
+
+	if (uio->uio_offset == 1 || uio->uio_offset == 2) {
+		dotoff = uio->uio_offset;
+		uio->uio_offset = 0;
 	}
 
 	/*
@@ -823,29 +783,34 @@ udf_readdir(struct vop_readdir_args *a)
 
 		if ((fid->l_fi == 0) && (fid->file_char & UDF_FILE_CHAR_PAR)) {
 			/* Do up the '.' and '..' entries.  Dummy values are
-			 * used for the cookies since the offset here is
+			 * used for the d_off since the offset here is
 			 * usually zero, and NFS doesn't like that value
 			 */
-			dir.d_fileno = node->hash_id;
-			dir.d_type = DT_DIR;
-			dir.d_name[0] = '.';
-			dir.d_name[1] = '\0';
-			dir.d_namlen = 1;
-			dir.d_reclen = GENERIC_DIRSIZ(&dir);
-			uiodir.dirent = &dir;
-			error = udf_uiodir(&uiodir, dir.d_reclen, uio, 1);
-			if (error)
-				break;
+			if (dotoff < 1) {
+				dir.d_fileno = node->hash_id;
+				dir.d_type = DT_DIR;
+				dir.d_name[0] = '.';
+				dir.d_name[1] = '\0';
+				dir.d_namlen = 1;
+				dir.d_reclen = GENERIC_DIRSIZ(&dir);
+				dir.d_off = 1;
+				error = vfs_read_dirent(a, &dir);
+				if (error)
+					break;
+				uio->uio_offset = dir.d_off;
+			}
 
-			dir.d_fileno = udf_getid(&fid->icb);
-			dir.d_type = DT_DIR;
-			dir.d_name[0] = '.';
-			dir.d_name[1] = '.';
-			dir.d_name[2] = '\0';
-			dir.d_namlen = 2;
-			dir.d_reclen = GENERIC_DIRSIZ(&dir);
-			uiodir.dirent = &dir;
-			error = udf_uiodir(&uiodir, dir.d_reclen, uio, 2);
+			if (dotoff < 2) {
+				dir.d_fileno = udf_getid(&fid->icb);
+				dir.d_type = DT_DIR;
+				dir.d_name[0] = '.';
+				dir.d_name[1] = '.';
+				dir.d_name[2] = '\0';
+				dir.d_namlen = 2;
+				dir.d_reclen = GENERIC_DIRSIZ(&dir);
+				dir.d_off = 2;
+				error = vfs_read_dirent(a, &dir);
+			}
 		} else {
 			dir.d_namlen = udf_transname(&fid->data[fid->l_iu],
 			    &dir.d_name[0], fid->l_fi, udfmp);
@@ -853,17 +818,13 @@ udf_readdir(struct vop_readdir_args *a)
 			dir.d_type = (fid->file_char & UDF_FILE_CHAR_DIR) ?
 			    DT_DIR : DT_UNKNOWN;
 			dir.d_reclen = GENERIC_DIRSIZ(&dir);
-			uiodir.dirent = &dir;
-			error = udf_uiodir(&uiodir, dir.d_reclen, uio,
-			    ds->this_off);
+			dir.d_off = ds->offset + ds->off;
+			error = vfs_read_dirent(a, &dir);
 		}
 		if (error)
 			break;
-		uio->uio_offset = ds->offset + ds->off;
+		uio->uio_offset = dir.d_off;
 	}
-
-	/* tell the calling layer whether we need to be called again */
-	*a->a_eofflag = uiodir.eofflag;
 
 	if (error < 0)
 		error = 0;
@@ -871,15 +832,6 @@ udf_readdir(struct vop_readdir_args *a)
 		error = ds->error;
 
 	udf_closedir(ds);
-
-	if (a->a_ncookies != NULL) {
-		if (error)
-			free(cookies, M_TEMP);
-		else {
-			*a->a_ncookies = uiodir.acookies;
-			*a->a_cookies = cookies;
-		}
-	}
 
 	return (error);
 }

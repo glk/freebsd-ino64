@@ -1345,8 +1345,6 @@ struct vop_readdir_args {
 	struct uio *a_uio;
 	struct ucred *a_cred;
 	int *a_eofflag;
-	int *a_ncookies;
-	u_long **a_cookies;
 };
 #endif
 
@@ -1362,7 +1360,6 @@ mqfs_readdir(struct vop_readdir_args *ap)
 	struct mqfs_node *pn;
 	struct dirent entry;
 	struct uio *uio;
-	int *tmp_ncookies = NULL;
 	off_t offset;
 	int error, i;
 
@@ -1374,14 +1371,8 @@ mqfs_readdir(struct vop_readdir_args *ap)
 	if (vp->v_type != VDIR)
 		return (ENOTDIR);
 
-	if (uio->uio_offset < 0)
+	if (uio->uio_offset < 0 || uio->uio_resid < sizeof(entry))
 		return (EINVAL);
-
-	if (ap->a_ncookies != NULL) {
-		tmp_ncookies = ap->a_ncookies;
-		*ap->a_ncookies = 0;
-		ap->a_ncookies = NULL;
-        }
 
 	error = 0;
 	offset = 0;
@@ -1393,6 +1384,7 @@ mqfs_readdir(struct vop_readdir_args *ap)
 		if (!pn->mn_fileno)
 			mqfs_fileno_alloc(mi, pn);
 		entry.d_fileno = pn->mn_fileno;
+		entry.d_off = offset + entry.d_reclen;
 		for (i = 0; i < MQFS_NAMELEN - 1 && pn->mn_name[i] != '\0'; ++i)
 			entry.d_name[i] = pn->mn_name[i];
 		entry.d_name[i] = 0;
@@ -1417,18 +1409,14 @@ mqfs_readdir(struct vop_readdir_args *ap)
 		if (entry.d_reclen > uio->uio_resid)
                         break;
 		if (offset >= uio->uio_offset) {
-			error = vfs_read_dirent(ap, &entry, offset);
+			error = vfs_read_dirent(ap, &entry);
                         if (error)
                                 break;
+			uio->uio_offset = entry.d_off;
                 }
-                offset += entry.d_reclen;
+                offset = entry.d_off;
 	}
 	sx_xunlock(&mi->mi_lock);
-
-	uio->uio_offset = offset;
-
-	if (tmp_ncookies != NULL)
-		ap->a_ncookies = tmp_ncookies;
 
 	return (error);
 }

@@ -59,7 +59,7 @@ typedef	__off_t		off_t;
 
 struct dirent {
 	ino_t      d_fileno;		/* file number of entry */
-	off_t      d_off__unused;	/* directory offset of entry */
+	off_t      d_off;		/* next entry seek offset */
 	__uint16_t d_reclen;		/* length of this record */
 	__uint16_t d_namlen;		/* length of string in d_name */
 	__uint8_t  d_type; 		/* file type, see below */

@@ -1164,7 +1164,7 @@ unionfs_check_rmdir(struct vnode *vp, struct ucred *cred, struct thread *td)
 		uio.uio_iovcnt = 1;
 		uio.uio_resid = iov.iov_len;
 
-		error = VOP_READDIR(lvp, &uio, cred, &eofflag, NULL, NULL);
+		error = VOP_READDIR(lvp, &uio, cred, &eofflag);
 		if (error != 0)
 			break;
 		if (eofflag == 0 && uio.uio_resid == sizeof(buf)) {

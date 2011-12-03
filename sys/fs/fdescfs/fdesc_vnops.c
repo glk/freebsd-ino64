@@ -494,8 +494,6 @@ fdesc_readdir(ap)
 		struct uio *a_uio;
 		struct ucred *a_cred;
 		int *a_eofflag;
-		u_long *a_cookies;
-		int a_ncookies;
 	} */ *ap;
 {
 	struct uio *uio = ap->a_uio;
@@ -506,9 +504,6 @@ fdesc_readdir(ap)
 
 	if (VTOFDESC(ap->a_vp)->fd_type != Froot)
 		panic("fdesc_readdir: not dir");
-
-	if (ap->a_ncookies != NULL)
-		*ap->a_ncookies = 0;
 
 	off = (int)uio->uio_offset;
 	if (off != uio->uio_offset || off < 0 || (u_int)off % UIO_MX != 0 ||
@@ -532,6 +527,7 @@ fdesc_readdir(ap)
 			bcopy("..", dp->d_name, dp->d_namlen);
 			dp->d_name[i + 1] = '\0';
 			dp->d_type = DT_DIR;
+			dp->d_off = (i + 1) * UIO_MX;
 			break;
 		default:
 			if (fdp->fd_ofiles[fcnt] == NULL)
@@ -540,6 +536,7 @@ fdesc_readdir(ap)
 			dp->d_reclen = UIO_MX;
 			dp->d_type = DT_UNKNOWN;
 			dp->d_fileno = i + FD_DESC;
+			dp->d_off = (i + 1) * UIO_MX;
 			break;
 		}
 		if (dp->d_namlen != 0) {

@@ -1495,9 +1495,6 @@ unionfs_readdir(struct vop_readdir_args *ap)
 	struct thread  *td;
 	struct vattr    va;
 
-	int		ncookies_bk;
-	u_long         *cookies_bk;
-
 	UNIONFS_INTERNAL_DEBUG("unionfs_readdir: enter\n");
 
 	KASSERT_UNIONFS_VNODE(ap->a_vp);
@@ -1510,8 +1507,6 @@ unionfs_readdir(struct vop_readdir_args *ap)
 	uvp = unp->un_uppervp;
 	lvp = unp->un_lowervp;
 	td = uio->uio_td;
-	ncookies_bk = 0;
-	cookies_bk = NULL;
 
 	if (ap->a_vp->v_type != VDIR)
 		return (ENOTDIR);
@@ -1542,8 +1537,7 @@ unionfs_readdir(struct vop_readdir_args *ap)
 
 	/* upper only */
 	if (uvp != NULLVP && lvp == NULLVP) {
-		error = VOP_READDIR(uvp, uio, ap->a_cred, ap->a_eofflag,
-		    ap->a_ncookies, ap->a_cookies);
+		error = VOP_READDIR(uvp, uio, ap->a_cred, ap->a_eofflag);
 		unsp->uns_readdir_status = 0;
 
 		goto unionfs_readdir_exit;
@@ -1551,8 +1545,7 @@ unionfs_readdir(struct vop_readdir_args *ap)
 
 	/* lower only */
 	if (uvp == NULLVP && lvp != NULLVP) {
-		error = VOP_READDIR(lvp, uio, ap->a_cred, ap->a_eofflag,
-		    ap->a_ncookies, ap->a_cookies);
+		error = VOP_READDIR(lvp, uio, ap->a_cred, ap->a_eofflag);
 		unsp->uns_readdir_status = 2;
 
 		goto unionfs_readdir_exit;
@@ -1568,8 +1561,7 @@ unionfs_readdir(struct vop_readdir_args *ap)
 
 	if (unsp->uns_readdir_status == 0) {
 		/* read upper */
-		error = VOP_READDIR(uvp, uio, ap->a_cred, &eofflag,
-				    ap->a_ncookies, ap->a_cookies);
+		error = VOP_READDIR(uvp, uio, ap->a_cred, &eofflag);
 
 		if (error != 0 || eofflag == 0)
 			goto unionfs_readdir_exit;
@@ -1583,19 +1575,6 @@ unionfs_readdir(struct vop_readdir_args *ap)
 		 */
 		if (uio->uio_resid <= (uio->uio_resid & (DEV_BSIZE -1)))
 			goto unionfs_readdir_exit;
-
-		/*
-		 * backup cookies
-		 * It prepares to readdir in lower.
-		 */
-		if (ap->a_ncookies != NULL) {
-			ncookies_bk = *(ap->a_ncookies);
-			*(ap->a_ncookies) = 0;
-		}
-		if (ap->a_cookies != NULL) {
-			cookies_bk = *(ap->a_cookies);
-			*(ap->a_cookies) = NULL;
-		}
 	}
 
 	/* initialize for readdir in lower */
@@ -1609,27 +1588,7 @@ unionfs_readdir(struct vop_readdir_args *ap)
 		goto unionfs_readdir_exit;
 	}
 	/* read lower */
-	error = VOP_READDIR(lvp, uio, ap->a_cred, ap->a_eofflag,
-			    ap->a_ncookies, ap->a_cookies);
-
-	if (cookies_bk != NULL) {
-		/* merge cookies */
-		int		size;
-		u_long         *newcookies, *pos;
-
-		size = *(ap->a_ncookies) + ncookies_bk;
-		newcookies = (u_long *) malloc(size * sizeof(u_long),
-		    M_TEMP, M_WAITOK);
-		pos = newcookies;
-
-		memcpy(pos, cookies_bk, ncookies_bk * sizeof(u_long));
-		pos += ncookies_bk * sizeof(u_long);
-		memcpy(pos, *(ap->a_cookies), *(ap->a_ncookies) * sizeof(u_long));
-		free(cookies_bk, M_TEMP);
-		free(*(ap->a_cookies), M_TEMP);
-		*(ap->a_ncookies) = size;
-		*(ap->a_cookies) = newcookies;
-	}
+	error = VOP_READDIR(lvp, uio, ap->a_cred, ap->a_eofflag);
 
 unionfs_readdir_exit:
 	if (error != 0 && ap->a_eofflag != NULL)

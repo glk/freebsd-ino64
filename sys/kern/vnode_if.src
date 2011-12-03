@@ -334,8 +334,6 @@ vop_readdir {
 	INOUT struct uio *uio;
 	IN struct ucred *cred;
 	INOUT int *eofflag;
-	OUT int *ncookies;
-	INOUT u_long **cookies;
 };
 
 

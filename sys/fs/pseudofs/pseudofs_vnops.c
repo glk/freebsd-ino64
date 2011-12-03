@@ -778,9 +778,11 @@ pfs_readdir(struct vop_readdir_args *va)
 
 	/* fill in entries */
 	ent = buf;
+	offset = uio->uio_offset;
 	while (pfs_iterate(curthread, proc, pd, &pn, &p) != -1 &&
 	    resid >= PFS_DELEN) {
 		entry = (struct dirent *)ent;
+		entry->d_off = offset + PFS_DELEN;
 		entry->d_reclen = PFS_DELEN;
 		entry->d_fileno = pn_fileno(pn, pid);
 		/* PFS_DELEN was picked to fit PFS_NAMLEN */

@@ -102,6 +102,7 @@ nwfs_readvdir(struct vnode *vp, struct uio *uio, struct ucred *cred) {
 			dp.d_name[0] = '.';
 			dp.d_name[1] = '.';
 			dp.d_name[i + 1] = '\0';
+			dp.d_off = (i + 1) * DE_SIZE;
 			dp.d_type = DT_DIR;
 			break;
 		    default:
@@ -112,6 +113,7 @@ nwfs_readvdir(struct vnode *vp, struct uio *uio, struct ucred *cred) {
 			dp.d_namlen = fattr.nameLen;
 			bcopy(fattr.entryName, dp.d_name, dp.d_namlen);
 			dp.d_name[dp.d_namlen] = '\0';
+			dp.d_off = (i + 1) * DE_SIZE;
 #if 0
 			if (error && eofflag) {
 			/*	*eofflag = 1;*/

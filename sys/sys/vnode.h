@@ -782,7 +782,7 @@ void vfs_hash_remove(struct vnode *vp);
 int vfs_kqfilter(struct vop_kqfilter_args *);
 void vfs_mark_atime(struct vnode *vp, struct ucred *cred);
 struct dirent;
-int vfs_read_dirent(struct vop_readdir_args *ap, struct dirent *dp, off_t off);
+int vfs_read_dirent(struct vop_readdir_args *ap, struct dirent *dp);
 
 int vfs_unixify_accmode(accmode_t *accmode);
 
