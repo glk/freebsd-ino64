@@ -971,30 +971,6 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		*n_args = 1;
 		break;
 	}
-	/* stat */
-	case 188: {
-		struct stat_args *p = params;
-		uarg[0] = (intptr_t) p->path; /* char * */
-		uarg[1] = (intptr_t) p->ub; /* struct stat * */
-		*n_args = 2;
-		break;
-	}
-	/* fstat */
-	case 189: {
-		struct fstat_args *p = params;
-		iarg[0] = p->fd; /* int */
-		uarg[1] = (intptr_t) p->sb; /* struct stat * */
-		*n_args = 2;
-		break;
-	}
-	/* lstat */
-	case 190: {
-		struct lstat_args *p = params;
-		uarg[0] = (intptr_t) p->path; /* char * */
-		uarg[1] = (intptr_t) p->ub; /* struct stat * */
-		*n_args = 2;
-		break;
-	}
 	/* pathconf */
 	case 191: {
 		struct pathconf_args *p = params;
@@ -1025,16 +1001,6 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		uarg[0] = p->which; /* u_int */
 		uarg[1] = (intptr_t) p->rlp; /* struct rlimit * */
 		*n_args = 2;
-		break;
-	}
-	/* getdirentries */
-	case 196: {
-		struct getdirentries_args *p = params;
-		iarg[0] = p->fd; /* int */
-		uarg[1] = (intptr_t) p->buf; /* char * */
-		uarg[2] = p->count; /* u_int */
-		uarg[3] = (intptr_t) p->basep; /* long * */
-		*n_args = 4;
 		break;
 	}
 	/* freebsd6_mmap */
@@ -1407,15 +1373,6 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		*n_args = 4;
 		break;
 	}
-	/* getdents */
-	case 272: {
-		struct getdents_args *p = params;
-		iarg[0] = p->fd; /* int */
-		uarg[1] = (intptr_t) p->buf; /* char * */
-		uarg[2] = p->count; /* size_t */
-		*n_args = 3;
-		break;
-	}
 	/* lchmod */
 	case 274: {
 		struct lchmod_args *p = params;
@@ -1450,30 +1407,6 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		*n_args = 3;
 		break;
 	}
-	/* nstat */
-	case 278: {
-		struct nstat_args *p = params;
-		uarg[0] = (intptr_t) p->path; /* char * */
-		uarg[1] = (intptr_t) p->ub; /* struct nstat * */
-		*n_args = 2;
-		break;
-	}
-	/* nfstat */
-	case 279: {
-		struct nfstat_args *p = params;
-		iarg[0] = p->fd; /* int */
-		uarg[1] = (intptr_t) p->sb; /* struct nstat * */
-		*n_args = 2;
-		break;
-	}
-	/* nlstat */
-	case 280: {
-		struct nlstat_args *p = params;
-		uarg[0] = (intptr_t) p->path; /* char * */
-		uarg[1] = (intptr_t) p->ub; /* struct nstat * */
-		*n_args = 2;
-		break;
-	}
 	/* preadv */
 	case 289: {
 		struct preadv_args *p = params;
@@ -1499,14 +1432,6 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		struct fhopen_args *p = params;
 		uarg[0] = (intptr_t) p->u_fhp; /* const struct fhandle * */
 		iarg[1] = p->flags; /* int */
-		*n_args = 2;
-		break;
-	}
-	/* fhstat */
-	case 299: {
-		struct fhstat_args *p = params;
-		uarg[0] = (intptr_t) p->u_fhp; /* const struct fhandle * */
-		uarg[1] = (intptr_t) p->sb; /* struct stat * */
 		*n_args = 2;
 		break;
 	}
@@ -2908,16 +2833,6 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		*n_args = 3;
 		break;
 	}
-	/* fstatat */
-	case 493: {
-		struct fstatat_args *p = params;
-		iarg[0] = p->fd; /* int */
-		uarg[1] = (intptr_t) p->path; /* char * */
-		uarg[2] = (intptr_t) p->buf; /* struct stat * */
-		iarg[3] = p->flag; /* int */
-		*n_args = 4;
-		break;
-	}
 	/* futimesat */
 	case 494: {
 		struct futimesat_args *p = params;
@@ -3241,6 +3156,67 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		iarg[1] = p->offset; /* off_t */
 		iarg[2] = p->len; /* off_t */
 		iarg[3] = p->advice; /* int */
+		*n_args = 4;
+		break;
+	}
+	/* stat */
+	case 532: {
+		struct stat_args *p = params;
+		uarg[0] = (intptr_t) p->path; /* char * */
+		uarg[1] = (intptr_t) p->ub; /* struct stat * */
+		*n_args = 2;
+		break;
+	}
+	/* fstat */
+	case 533: {
+		struct fstat_args *p = params;
+		iarg[0] = p->fd; /* int */
+		uarg[1] = (intptr_t) p->sb; /* struct stat * */
+		*n_args = 2;
+		break;
+	}
+	/* lstat */
+	case 534: {
+		struct lstat_args *p = params;
+		uarg[0] = (intptr_t) p->path; /* char * */
+		uarg[1] = (intptr_t) p->ub; /* struct stat * */
+		*n_args = 2;
+		break;
+	}
+	/* fhstat */
+	case 535: {
+		struct fhstat_args *p = params;
+		uarg[0] = (intptr_t) p->u_fhp; /* const struct fhandle * */
+		uarg[1] = (intptr_t) p->sb; /* struct stat * */
+		*n_args = 2;
+		break;
+	}
+	/* fstatat */
+	case 536: {
+		struct fstatat_args *p = params;
+		iarg[0] = p->fd; /* int */
+		uarg[1] = (intptr_t) p->path; /* char * */
+		uarg[2] = (intptr_t) p->buf; /* struct stat * */
+		iarg[3] = p->flag; /* int */
+		*n_args = 4;
+		break;
+	}
+	/* getdents */
+	case 537: {
+		struct getdents_args *p = params;
+		iarg[0] = p->fd; /* int */
+		uarg[1] = (intptr_t) p->buf; /* char * */
+		uarg[2] = p->count; /* size_t */
+		*n_args = 3;
+		break;
+	}
+	/* getdirentries */
+	case 538: {
+		struct getdirentries_args *p = params;
+		iarg[0] = p->fd; /* int */
+		uarg[1] = (intptr_t) p->buf; /* char * */
+		uarg[2] = p->count; /* u_int */
+		uarg[3] = (intptr_t) p->basep; /* long * */
 		*n_args = 4;
 		break;
 	}
@@ -4811,45 +4787,6 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		};
 		break;
-	/* stat */
-	case 188:
-		switch(ndx) {
-		case 0:
-			p = "char *";
-			break;
-		case 1:
-			p = "struct stat *";
-			break;
-		default:
-			break;
-		};
-		break;
-	/* fstat */
-	case 189:
-		switch(ndx) {
-		case 0:
-			p = "int";
-			break;
-		case 1:
-			p = "struct stat *";
-			break;
-		default:
-			break;
-		};
-		break;
-	/* lstat */
-	case 190:
-		switch(ndx) {
-		case 0:
-			p = "char *";
-			break;
-		case 1:
-			p = "struct stat *";
-			break;
-		default:
-			break;
-		};
-		break;
 	/* pathconf */
 	case 191:
 		switch(ndx) {
@@ -4897,25 +4834,6 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		case 1:
 			p = "struct rlimit *";
-			break;
-		default:
-			break;
-		};
-		break;
-	/* getdirentries */
-	case 196:
-		switch(ndx) {
-		case 0:
-			p = "int";
-			break;
-		case 1:
-			p = "char *";
-			break;
-		case 2:
-			p = "u_int";
-			break;
-		case 3:
-			p = "long *";
 			break;
 		default:
 			break;
@@ -5491,22 +5409,6 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		};
 		break;
-	/* getdents */
-	case 272:
-		switch(ndx) {
-		case 0:
-			p = "int";
-			break;
-		case 1:
-			p = "char *";
-			break;
-		case 2:
-			p = "size_t";
-			break;
-		default:
-			break;
-		};
-		break;
 	/* lchmod */
 	case 274:
 		switch(ndx) {
@@ -5565,45 +5467,6 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		};
 		break;
-	/* nstat */
-	case 278:
-		switch(ndx) {
-		case 0:
-			p = "char *";
-			break;
-		case 1:
-			p = "struct nstat *";
-			break;
-		default:
-			break;
-		};
-		break;
-	/* nfstat */
-	case 279:
-		switch(ndx) {
-		case 0:
-			p = "int";
-			break;
-		case 1:
-			p = "struct nstat *";
-			break;
-		default:
-			break;
-		};
-		break;
-	/* nlstat */
-	case 280:
-		switch(ndx) {
-		case 0:
-			p = "char *";
-			break;
-		case 1:
-			p = "struct nstat *";
-			break;
-		default:
-			break;
-		};
-		break;
 	/* preadv */
 	case 289:
 		switch(ndx) {
@@ -5650,19 +5513,6 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		case 1:
 			p = "int";
-			break;
-		default:
-			break;
-		};
-		break;
-	/* fhstat */
-	case 299:
-		switch(ndx) {
-		case 0:
-			p = "const struct fhandle *";
-			break;
-		case 1:
-			p = "struct stat *";
 			break;
 		default:
 			break;
@@ -8043,25 +7893,6 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		};
 		break;
-	/* fstatat */
-	case 493:
-		switch(ndx) {
-		case 0:
-			p = "int";
-			break;
-		case 1:
-			p = "char *";
-			break;
-		case 2:
-			p = "struct stat *";
-			break;
-		case 3:
-			p = "int";
-			break;
-		default:
-			break;
-		};
-		break;
 	/* futimesat */
 	case 494:
 		switch(ndx) {
@@ -8632,6 +8463,112 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		};
 		break;
+	/* stat */
+	case 532:
+		switch(ndx) {
+		case 0:
+			p = "char *";
+			break;
+		case 1:
+			p = "struct stat *";
+			break;
+		default:
+			break;
+		};
+		break;
+	/* fstat */
+	case 533:
+		switch(ndx) {
+		case 0:
+			p = "int";
+			break;
+		case 1:
+			p = "struct stat *";
+			break;
+		default:
+			break;
+		};
+		break;
+	/* lstat */
+	case 534:
+		switch(ndx) {
+		case 0:
+			p = "char *";
+			break;
+		case 1:
+			p = "struct stat *";
+			break;
+		default:
+			break;
+		};
+		break;
+	/* fhstat */
+	case 535:
+		switch(ndx) {
+		case 0:
+			p = "const struct fhandle *";
+			break;
+		case 1:
+			p = "struct stat *";
+			break;
+		default:
+			break;
+		};
+		break;
+	/* fstatat */
+	case 536:
+		switch(ndx) {
+		case 0:
+			p = "int";
+			break;
+		case 1:
+			p = "char *";
+			break;
+		case 2:
+			p = "struct stat *";
+			break;
+		case 3:
+			p = "int";
+			break;
+		default:
+			break;
+		};
+		break;
+	/* getdents */
+	case 537:
+		switch(ndx) {
+		case 0:
+			p = "int";
+			break;
+		case 1:
+			p = "char *";
+			break;
+		case 2:
+			p = "size_t";
+			break;
+		default:
+			break;
+		};
+		break;
+	/* getdirentries */
+	case 538:
+		switch(ndx) {
+		case 0:
+			p = "int";
+			break;
+		case 1:
+			p = "char *";
+			break;
+		case 2:
+			p = "u_int";
+			break;
+		case 3:
+			p = "long *";
+			break;
+		default:
+			break;
+		};
+		break;
 	default:
 		break;
 	};
@@ -9196,21 +9133,6 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;
-	/* stat */
-	case 188:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
-	/* fstat */
-	case 189:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
-	/* lstat */
-	case 190:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
 	/* pathconf */
 	case 191:
 		if (ndx == 0 || ndx == 1)
@@ -9228,11 +9150,6 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		break;
 	/* setrlimit */
 	case 195:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
-	/* getdirentries */
-	case 196:
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;
@@ -9440,11 +9357,6 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;
-	/* getdents */
-	case 272:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
 	/* lchmod */
 	case 274:
 		if (ndx == 0 || ndx == 1)
@@ -9465,21 +9377,6 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;
-	/* nstat */
-	case 278:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
-	/* nfstat */
-	case 279:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
-	/* nlstat */
-	case 280:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
 	/* preadv */
 	case 289:
 		if (ndx == 0 || ndx == 1)
@@ -9492,11 +9389,6 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		break;
 	/* fhopen */
 	case 298:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
-	/* fhstat */
-	case 299:
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;
@@ -10313,11 +10205,6 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;
-	/* fstatat */
-	case 493:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
 	/* futimesat */
 	case 494:
 		if (ndx == 0 || ndx == 1)
@@ -10497,6 +10384,41 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		break;
 	/* posix_fadvise */
 	case 531:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* stat */
+	case 532:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* fstat */
+	case 533:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* lstat */
+	case 534:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* fhstat */
+	case 535:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* fstatat */
+	case 536:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* getdents */
+	case 537:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* getdirentries */
+	case 538:
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;
