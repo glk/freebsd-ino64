@@ -269,10 +269,10 @@ MIASM =  \
 	uuidgen.o \
 	sendfile.o \
 	mac_syscall.o \
-	getfsstat.o \
-	statfs.o \
-	fstatfs.o \
-	fhstatfs.o \
+	freebsd9_getfsstat.o \
+	freebsd9_statfs.o \
+	freebsd9_fstatfs.o \
+	freebsd9_fhstatfs.o \
 	ksem_close.o \
 	ksem_post.o \
 	ksem_wait.o \
@@ -402,4 +402,8 @@ MIASM =  \
 	fhstat.o \
 	fstatat.o \
 	getdents.o \
-	getdirentries.o
+	getdirentries.o \
+	getfsstat.o \
+	statfs.o \
+	fstatfs.o \
+	fhstatfs.o

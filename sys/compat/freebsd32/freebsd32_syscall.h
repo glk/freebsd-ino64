@@ -301,10 +301,10 @@
 #define	FREEBSD32_SYS_lchflags	391
 #define	FREEBSD32_SYS_uuidgen	392
 #define	FREEBSD32_SYS_freebsd32_sendfile	393
-#define	FREEBSD32_SYS_getfsstat	395
-#define	FREEBSD32_SYS_statfs	396
-#define	FREEBSD32_SYS_fstatfs	397
-#define	FREEBSD32_SYS_fhstatfs	398
+#define	FREEBSD32_SYS_freebsd9_getfsstat	395
+#define	FREEBSD32_SYS_freebsd9_statfs	396
+#define	FREEBSD32_SYS_freebsd9_fstatfs	397
+#define	FREEBSD32_SYS_freebsd9_fhstatfs	398
 #define	FREEBSD32_SYS_ksem_close	400
 #define	FREEBSD32_SYS_ksem_post	401
 #define	FREEBSD32_SYS_ksem_wait	402
@@ -432,4 +432,8 @@
 #define	FREEBSD32_SYS_freebsd32_fstatat	536
 #define	FREEBSD32_SYS_getdents	537
 #define	FREEBSD32_SYS_freebsd32_getdirentries	538
-#define	FREEBSD32_SYS_MAXSYSCALL	539
+#define	FREEBSD32_SYS_getfsstat	539
+#define	FREEBSD32_SYS_statfs	540
+#define	FREEBSD32_SYS_fstatfs	541
+#define	FREEBSD32_SYS_fhstatfs	542
+#define	FREEBSD32_SYS_MAXSYSCALL	543

@@ -320,10 +320,10 @@
 #define	SYS_uuidgen	392
 #define	SYS_sendfile	393
 #define	SYS_mac_syscall	394
-#define	SYS_getfsstat	395
-#define	SYS_statfs	396
-#define	SYS_fstatfs	397
-#define	SYS_fhstatfs	398
+#define	SYS_freebsd9_getfsstat	395
+#define	SYS_freebsd9_statfs	396
+#define	SYS_freebsd9_fstatfs	397
+#define	SYS_freebsd9_fhstatfs	398
 #define	SYS_ksem_close	400
 #define	SYS_ksem_post	401
 #define	SYS_ksem_wait	402
@@ -454,4 +454,8 @@
 #define	SYS_fstatat	536
 #define	SYS_getdents	537
 #define	SYS_getdirentries	538
-#define	SYS_MAXSYSCALL	539
+#define	SYS_getfsstat	539
+#define	SYS_statfs	540
+#define	SYS_fstatfs	541
+#define	SYS_fhstatfs	542
+#define	SYS_MAXSYSCALL	543

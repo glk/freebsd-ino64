@@ -1100,23 +1100,6 @@ struct mac_syscall_args {
 	char call_l_[PADL_(int)]; int call; char call_r_[PADR_(int)];
 	char arg_l_[PADL_(void *)]; void * arg; char arg_r_[PADR_(void *)];
 };
-struct getfsstat_args {
-	char buf_l_[PADL_(struct statfs *)]; struct statfs * buf; char buf_r_[PADR_(struct statfs *)];
-	char bufsize_l_[PADL_(long)]; long bufsize; char bufsize_r_[PADR_(long)];
-	char flags_l_[PADL_(int)]; int flags; char flags_r_[PADR_(int)];
-};
-struct statfs_args {
-	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
-	char buf_l_[PADL_(struct statfs *)]; struct statfs * buf; char buf_r_[PADR_(struct statfs *)];
-};
-struct fstatfs_args {
-	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
-	char buf_l_[PADL_(struct statfs *)]; struct statfs * buf; char buf_r_[PADR_(struct statfs *)];
-};
-struct fhstatfs_args {
-	char u_fhp_l_[PADL_(const struct fhandle *)]; const struct fhandle * u_fhp; char u_fhp_r_[PADR_(const struct fhandle *)];
-	char buf_l_[PADL_(struct statfs *)]; struct statfs * buf; char buf_r_[PADR_(struct statfs *)];
-};
 struct ksem_close_args {
 	char id_l_[PADL_(semid_t)]; semid_t id; char id_r_[PADR_(semid_t)];
 };
@@ -1727,6 +1710,23 @@ struct getdirentries_args {
 	char count_l_[PADL_(u_int)]; u_int count; char count_r_[PADR_(u_int)];
 	char basep_l_[PADL_(long *)]; long * basep; char basep_r_[PADR_(long *)];
 };
+struct getfsstat_args {
+	char buf_l_[PADL_(struct statfs *)]; struct statfs * buf; char buf_r_[PADR_(struct statfs *)];
+	char bufsize_l_[PADL_(long)]; long bufsize; char bufsize_r_[PADR_(long)];
+	char flags_l_[PADL_(int)]; int flags; char flags_r_[PADR_(int)];
+};
+struct statfs_args {
+	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
+	char buf_l_[PADL_(struct statfs *)]; struct statfs * buf; char buf_r_[PADR_(struct statfs *)];
+};
+struct fstatfs_args {
+	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
+	char buf_l_[PADL_(struct statfs *)]; struct statfs * buf; char buf_r_[PADR_(struct statfs *)];
+};
+struct fhstatfs_args {
+	char u_fhp_l_[PADL_(const struct fhandle *)]; const struct fhandle * u_fhp; char u_fhp_r_[PADR_(const struct fhandle *)];
+	char buf_l_[PADL_(struct statfs *)]; struct statfs * buf; char buf_r_[PADR_(struct statfs *)];
+};
 int	nosys(struct thread *, struct nosys_args *);
 void	sys_sys_exit(struct thread *, struct sys_exit_args *);
 int	sys_fork(struct thread *, struct fork_args *);
@@ -1968,10 +1968,6 @@ int	sys_lchflags(struct thread *, struct lchflags_args *);
 int	sys_uuidgen(struct thread *, struct uuidgen_args *);
 int	sys_sendfile(struct thread *, struct sendfile_args *);
 int	sys_mac_syscall(struct thread *, struct mac_syscall_args *);
-int	sys_getfsstat(struct thread *, struct getfsstat_args *);
-int	sys_statfs(struct thread *, struct statfs_args *);
-int	sys_fstatfs(struct thread *, struct fstatfs_args *);
-int	sys_fhstatfs(struct thread *, struct fhstatfs_args *);
 int	sys_ksem_close(struct thread *, struct ksem_close_args *);
 int	sys_ksem_post(struct thread *, struct ksem_post_args *);
 int	sys_ksem_wait(struct thread *, struct ksem_wait_args *);
@@ -2101,6 +2097,10 @@ int	sys_fhstat(struct thread *, struct fhstat_args *);
 int	sys_fstatat(struct thread *, struct fstatat_args *);
 int	sys_getdents(struct thread *, struct getdents_args *);
 int	sys_getdirentries(struct thread *, struct getdirentries_args *);
+int	sys_getfsstat(struct thread *, struct getfsstat_args *);
+int	sys_statfs(struct thread *, struct statfs_args *);
+int	sys_fstatfs(struct thread *, struct fstatfs_args *);
+int	sys_fhstatfs(struct thread *, struct fhstatfs_args *);
 
 #ifdef COMPAT_43
 
@@ -2407,6 +2407,23 @@ struct freebsd9_fhstat_args {
 	char u_fhp_l_[PADL_(const struct fhandle *)]; const struct fhandle * u_fhp; char u_fhp_r_[PADR_(const struct fhandle *)];
 	char sb_l_[PADL_(struct freebsd9_stat *)]; struct freebsd9_stat * sb; char sb_r_[PADR_(struct freebsd9_stat *)];
 };
+struct freebsd9_getfsstat_args {
+	char buf_l_[PADL_(struct freebsd9_statfs *)]; struct freebsd9_statfs * buf; char buf_r_[PADR_(struct freebsd9_statfs *)];
+	char bufsize_l_[PADL_(long)]; long bufsize; char bufsize_r_[PADR_(long)];
+	char flags_l_[PADL_(int)]; int flags; char flags_r_[PADR_(int)];
+};
+struct freebsd9_statfs_args {
+	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
+	char buf_l_[PADL_(struct freebsd9_statfs *)]; struct freebsd9_statfs * buf; char buf_r_[PADR_(struct freebsd9_statfs *)];
+};
+struct freebsd9_fstatfs_args {
+	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
+	char buf_l_[PADL_(struct freebsd9_statfs *)]; struct freebsd9_statfs * buf; char buf_r_[PADR_(struct freebsd9_statfs *)];
+};
+struct freebsd9_fhstatfs_args {
+	char u_fhp_l_[PADL_(const struct fhandle *)]; const struct fhandle * u_fhp; char u_fhp_r_[PADR_(const struct fhandle *)];
+	char buf_l_[PADL_(struct freebsd9_statfs *)]; struct freebsd9_statfs * buf; char buf_r_[PADR_(struct freebsd9_statfs *)];
+};
 struct freebsd9_fstatat_args {
 	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
 	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
@@ -2422,6 +2439,10 @@ int	freebsd9_nstat(struct thread *, struct freebsd9_nstat_args *);
 int	freebsd9_nfstat(struct thread *, struct freebsd9_nfstat_args *);
 int	freebsd9_nlstat(struct thread *, struct freebsd9_nlstat_args *);
 int	freebsd9_fhstat(struct thread *, struct freebsd9_fhstat_args *);
+int	freebsd9_getfsstat(struct thread *, struct freebsd9_getfsstat_args *);
+int	freebsd9_statfs(struct thread *, struct freebsd9_statfs_args *);
+int	freebsd9_fstatfs(struct thread *, struct freebsd9_fstatfs_args *);
+int	freebsd9_fhstatfs(struct thread *, struct freebsd9_fhstatfs_args *);
 int	freebsd9_fstatat(struct thread *, struct freebsd9_fstatat_args *);
 
 #endif /* COMPAT_FREEBSD9 */
@@ -2726,10 +2747,10 @@ int	freebsd9_fstatat(struct thread *, struct freebsd9_fstatat_args *);
 #define	SYS_AUE_uuidgen	AUE_NULL
 #define	SYS_AUE_sendfile	AUE_SENDFILE
 #define	SYS_AUE_mac_syscall	AUE_NULL
-#define	SYS_AUE_getfsstat	AUE_GETFSSTAT
-#define	SYS_AUE_statfs	AUE_STATFS
-#define	SYS_AUE_fstatfs	AUE_FSTATFS
-#define	SYS_AUE_fhstatfs	AUE_FHSTATFS
+#define	SYS_AUE_freebsd9_getfsstat	AUE_GETFSSTAT
+#define	SYS_AUE_freebsd9_statfs	AUE_STATFS
+#define	SYS_AUE_freebsd9_fstatfs	AUE_FSTATFS
+#define	SYS_AUE_freebsd9_fhstatfs	AUE_FHSTATFS
 #define	SYS_AUE_ksem_close	AUE_NULL
 #define	SYS_AUE_ksem_post	AUE_NULL
 #define	SYS_AUE_ksem_wait	AUE_NULL
@@ -2860,6 +2881,10 @@ int	freebsd9_fstatat(struct thread *, struct freebsd9_fstatat_args *);
 #define	SYS_AUE_fstatat	AUE_FSTATAT
 #define	SYS_AUE_getdents	AUE_O_GETDENTS
 #define	SYS_AUE_getdirentries	AUE_GETDIRENTRIES
+#define	SYS_AUE_getfsstat	AUE_GETFSSTAT
+#define	SYS_AUE_statfs	AUE_STATFS
+#define	SYS_AUE_fstatfs	AUE_FSTATFS
+#define	SYS_AUE_fhstatfs	AUE_FHSTATFS
 
 #undef PAD_
 #undef PADL_

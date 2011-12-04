@@ -1846,39 +1846,6 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		*n_args = 8;
 		break;
 	}
-	/* getfsstat */
-	case 395: {
-		struct getfsstat_args *p = params;
-		uarg[0] = (intptr_t) p->buf; /* struct statfs * */
-		iarg[1] = p->bufsize; /* long */
-		iarg[2] = p->flags; /* int */
-		*n_args = 3;
-		break;
-	}
-	/* statfs */
-	case 396: {
-		struct statfs_args *p = params;
-		uarg[0] = (intptr_t) p->path; /* char * */
-		uarg[1] = (intptr_t) p->buf; /* struct statfs * */
-		*n_args = 2;
-		break;
-	}
-	/* fstatfs */
-	case 397: {
-		struct fstatfs_args *p = params;
-		iarg[0] = p->fd; /* int */
-		uarg[1] = (intptr_t) p->buf; /* struct statfs * */
-		*n_args = 2;
-		break;
-	}
-	/* fhstatfs */
-	case 398: {
-		struct fhstatfs_args *p = params;
-		uarg[0] = (intptr_t) p->u_fhp; /* const struct fhandle * */
-		uarg[1] = (intptr_t) p->buf; /* struct statfs * */
-		*n_args = 2;
-		break;
-	}
 	/* ksem_close */
 	case 400: {
 		struct ksem_close_args *p = params;
@@ -3020,6 +2987,39 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		uarg[2] = p->count; /* u_int */
 		uarg[3] = (intptr_t) p->basep; /* int32_t * */
 		*n_args = 4;
+		break;
+	}
+	/* getfsstat */
+	case 539: {
+		struct getfsstat_args *p = params;
+		uarg[0] = (intptr_t) p->buf; /* struct statfs * */
+		iarg[1] = p->bufsize; /* long */
+		iarg[2] = p->flags; /* int */
+		*n_args = 3;
+		break;
+	}
+	/* statfs */
+	case 540: {
+		struct statfs_args *p = params;
+		uarg[0] = (intptr_t) p->path; /* char * */
+		uarg[1] = (intptr_t) p->buf; /* struct statfs * */
+		*n_args = 2;
+		break;
+	}
+	/* fstatfs */
+	case 541: {
+		struct fstatfs_args *p = params;
+		iarg[0] = p->fd; /* int */
+		uarg[1] = (intptr_t) p->buf; /* struct statfs * */
+		*n_args = 2;
+		break;
+	}
+	/* fhstatfs */
+	case 542: {
+		struct fhstatfs_args *p = params;
+		uarg[0] = (intptr_t) p->u_fhp; /* const struct fhandle * */
+		uarg[1] = (intptr_t) p->buf; /* struct statfs * */
+		*n_args = 2;
 		break;
 	}
 	default:
@@ -5982,61 +5982,6 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		};
 		break;
-	/* getfsstat */
-	case 395:
-		switch(ndx) {
-		case 0:
-			p = "struct statfs *";
-			break;
-		case 1:
-			p = "long";
-			break;
-		case 2:
-			p = "int";
-			break;
-		default:
-			break;
-		};
-		break;
-	/* statfs */
-	case 396:
-		switch(ndx) {
-		case 0:
-			p = "char *";
-			break;
-		case 1:
-			p = "struct statfs *";
-			break;
-		default:
-			break;
-		};
-		break;
-	/* fstatfs */
-	case 397:
-		switch(ndx) {
-		case 0:
-			p = "int";
-			break;
-		case 1:
-			p = "struct statfs *";
-			break;
-		default:
-			break;
-		};
-		break;
-	/* fhstatfs */
-	case 398:
-		switch(ndx) {
-		case 0:
-			p = "const struct fhandle *";
-			break;
-		case 1:
-			p = "struct statfs *";
-			break;
-		default:
-			break;
-		};
-		break;
 	/* ksem_close */
 	case 400:
 		switch(ndx) {
@@ -8067,6 +8012,61 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		};
 		break;
+	/* getfsstat */
+	case 539:
+		switch(ndx) {
+		case 0:
+			p = "struct statfs *";
+			break;
+		case 1:
+			p = "long";
+			break;
+		case 2:
+			p = "int";
+			break;
+		default:
+			break;
+		};
+		break;
+	/* statfs */
+	case 540:
+		switch(ndx) {
+		case 0:
+			p = "char *";
+			break;
+		case 1:
+			p = "struct statfs *";
+			break;
+		default:
+			break;
+		};
+		break;
+	/* fstatfs */
+	case 541:
+		switch(ndx) {
+		case 0:
+			p = "int";
+			break;
+		case 1:
+			p = "struct statfs *";
+			break;
+		default:
+			break;
+		};
+		break;
+	/* fhstatfs */
+	case 542:
+		switch(ndx) {
+		case 0:
+			p = "const struct fhandle *";
+			break;
+		case 1:
+			p = "struct statfs *";
+			break;
+		default:
+			break;
+		};
+		break;
 	default:
 		break;
 	};
@@ -9136,26 +9136,6 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;
-	/* getfsstat */
-	case 395:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
-	/* statfs */
-	case 396:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
-	/* fstatfs */
-	case 397:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
-	/* fhstatfs */
-	case 398:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
 	/* ksem_close */
 	case 400:
 		if (ndx == 0 || ndx == 1)
@@ -9786,6 +9766,26 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		break;
 	/* freebsd32_getdirentries */
 	case 538:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* getfsstat */
+	case 539:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* statfs */
+	case 540:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* fstatfs */
+	case 541:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* fhstatfs */
+	case 542:
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;
