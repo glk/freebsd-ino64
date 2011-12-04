@@ -166,7 +166,6 @@ FBSD_1.0 {
 	getloadavg;
 	getlogin;
 	getlogin_r;
-	getmntinfo;
 	setnetgrent;
 	getnetgrent;
 	endnetgrent;
@@ -377,6 +376,7 @@ FBSD_1.3 {
 	fts_set;
 	fts_set_clientptr;
 	ftw;
+	getmntinfo;
 	glob;
 	globfree;
 	nftw;
