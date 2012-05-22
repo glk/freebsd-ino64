@@ -20,7 +20,7 @@
 				/* 11 is obsolete execv */
 #define	SYS_chdir	12
 #define	SYS_fchdir	13
-#define	SYS_mknod	14
+#define	SYS_freebsd9_mknod	14
 #define	SYS_chmod	15
 #define	SYS_chown	16
 #define	SYS_break	17
@@ -414,7 +414,7 @@
 #define	SYS_linkat	495
 #define	SYS_mkdirat	496
 #define	SYS_mkfifoat	497
-#define	SYS_mknodat	498
+#define	SYS_freebsd9_mknodat	498
 #define	SYS_openat	499
 #define	SYS_readlinkat	500
 #define	SYS_renameat	501
@@ -458,4 +458,5 @@
 #define	SYS_statfs	540
 #define	SYS_fstatfs	541
 #define	SYS_fhstatfs	542
-#define	SYS_MAXSYSCALL	543
+#define	SYS_mknodat	543
+#define	SYS_MAXSYSCALL	544

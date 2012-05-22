@@ -101,15 +101,6 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		*n_args = 1;
 		break;
 	}
-	/* mknod */
-	case 14: {
-		struct mknod_args *p = params;
-		uarg[0] = (intptr_t) p->path; /* char * */
-		iarg[1] = p->mode; /* int */
-		iarg[2] = p->dev; /* int */
-		*n_args = 3;
-		break;
-	}
 	/* chmod */
 	case 15: {
 		struct chmod_args *p = params;
@@ -2838,16 +2829,6 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		*n_args = 3;
 		break;
 	}
-	/* mknodat */
-	case 498: {
-		struct mknodat_args *p = params;
-		iarg[0] = p->fd; /* int */
-		uarg[1] = (intptr_t) p->path; /* char * */
-		iarg[2] = p->mode; /* mode_t */
-		iarg[3] = p->dev; /* dev_t */
-		*n_args = 4;
-		break;
-	}
 	/* openat */
 	case 499: {
 		struct openat_args *p = params;
@@ -3220,6 +3201,16 @@ systrace_args(int sysnum, void *params, uint64_t *uarg, int *n_args)
 		*n_args = 2;
 		break;
 	}
+	/* mknodat */
+	case 543: {
+		struct mknodat_args *p = params;
+		iarg[0] = p->fd; /* int */
+		uarg[1] = (intptr_t) p->path; /* char * */
+		iarg[2] = p->mode; /* mode_t */
+		iarg[3] = p->dev; /* dev_t */
+		*n_args = 4;
+		break;
+	}
 	default:
 		*n_args = 0;
 		break;
@@ -3360,22 +3351,6 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 	case 13:
 		switch(ndx) {
 		case 0:
-			p = "int";
-			break;
-		default:
-			break;
-		};
-		break;
-	/* mknod */
-	case 14:
-		switch(ndx) {
-		case 0:
-			p = "char *";
-			break;
-		case 1:
-			p = "int";
-			break;
-		case 2:
 			p = "int";
 			break;
 		default:
@@ -7908,25 +7883,6 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		};
 		break;
-	/* mknodat */
-	case 498:
-		switch(ndx) {
-		case 0:
-			p = "int";
-			break;
-		case 1:
-			p = "char *";
-			break;
-		case 2:
-			p = "mode_t";
-			break;
-		case 3:
-			p = "dev_t";
-			break;
-		default:
-			break;
-		};
-		break;
 	/* openat */
 	case 499:
 		switch(ndx) {
@@ -8569,6 +8525,25 @@ systrace_entry_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 			break;
 		};
 		break;
+	/* mknodat */
+	case 543:
+		switch(ndx) {
+		case 0:
+			p = "int";
+			break;
+		case 1:
+			p = "char *";
+			break;
+		case 2:
+			p = "mode_t";
+			break;
+		case 3:
+			p = "dev_t";
+			break;
+		default:
+			break;
+		};
+		break;
 	default:
 		break;
 	};
@@ -8631,11 +8606,6 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		break;
 	/* fchdir */
 	case 13:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
-	/* mknod */
-	case 14:
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;
@@ -10205,11 +10175,6 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;
-	/* mknodat */
-	case 498:
-		if (ndx == 0 || ndx == 1)
-			p = "int";
-		break;
 	/* openat */
 	case 499:
 		if (ndx == 0 || ndx == 1)
@@ -10419,6 +10384,11 @@ systrace_return_setargdesc(int sysnum, int ndx, char *desc, size_t descsz)
 		break;
 	/* fhstatfs */
 	case 542:
+		if (ndx == 0 || ndx == 1)
+			p = "int";
+		break;
+	/* mknodat */
+	case 543:
 		if (ndx == 0 || ndx == 1)
 			p = "int";
 		break;

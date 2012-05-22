@@ -15,7 +15,7 @@ MIASM =  \
 	unlink.o \
 	chdir.o \
 	fchdir.o \
-	mknod.o \
+	freebsd9_mknod.o \
 	chmod.o \
 	chown.o \
 	break.o \
@@ -363,7 +363,7 @@ MIASM =  \
 	linkat.o \
 	mkdirat.o \
 	mkfifoat.o \
-	mknodat.o \
+	freebsd9_mknodat.o \
 	openat.o \
 	readlinkat.o \
 	renameat.o \
@@ -406,4 +406,5 @@ MIASM =  \
 	getfsstat.o \
 	statfs.o \
 	fstatfs.o \
-	fhstatfs.o
+	fhstatfs.o \
+	mknodat.o

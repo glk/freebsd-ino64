@@ -78,11 +78,6 @@ struct chdir_args {
 struct fchdir_args {
 	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
 };
-struct mknod_args {
-	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
-	char mode_l_[PADL_(int)]; int mode; char mode_r_[PADR_(int)];
-	char dev_l_[PADL_(int)]; int dev; char dev_r_[PADR_(int)];
-};
 struct chmod_args {
 	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
 	char mode_l_[PADL_(int)]; int mode; char mode_r_[PADR_(int)];
@@ -1519,12 +1514,6 @@ struct mkfifoat_args {
 	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
 	char mode_l_[PADL_(mode_t)]; mode_t mode; char mode_r_[PADR_(mode_t)];
 };
-struct mknodat_args {
-	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
-	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
-	char mode_l_[PADL_(mode_t)]; mode_t mode; char mode_r_[PADR_(mode_t)];
-	char dev_l_[PADL_(dev_t)]; dev_t dev; char dev_r_[PADR_(dev_t)];
-};
 struct openat_args {
 	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
 	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
@@ -1727,6 +1716,12 @@ struct fhstatfs_args {
 	char u_fhp_l_[PADL_(const struct fhandle *)]; const struct fhandle * u_fhp; char u_fhp_r_[PADR_(const struct fhandle *)];
 	char buf_l_[PADL_(struct statfs *)]; struct statfs * buf; char buf_r_[PADR_(struct statfs *)];
 };
+struct mknodat_args {
+	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
+	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
+	char mode_l_[PADL_(mode_t)]; mode_t mode; char mode_r_[PADR_(mode_t)];
+	char dev_l_[PADL_(dev_t)]; dev_t dev; char dev_r_[PADR_(dev_t)];
+};
 int	nosys(struct thread *, struct nosys_args *);
 void	sys_sys_exit(struct thread *, struct sys_exit_args *);
 int	sys_fork(struct thread *, struct fork_args *);
@@ -1739,7 +1734,6 @@ int	sys_link(struct thread *, struct link_args *);
 int	sys_unlink(struct thread *, struct unlink_args *);
 int	sys_chdir(struct thread *, struct chdir_args *);
 int	sys_fchdir(struct thread *, struct fchdir_args *);
-int	sys_mknod(struct thread *, struct mknod_args *);
 int	sys_chmod(struct thread *, struct chmod_args *);
 int	sys_chown(struct thread *, struct chown_args *);
 int	sys_obreak(struct thread *, struct obreak_args *);
@@ -2057,7 +2051,6 @@ int	sys_futimesat(struct thread *, struct futimesat_args *);
 int	sys_linkat(struct thread *, struct linkat_args *);
 int	sys_mkdirat(struct thread *, struct mkdirat_args *);
 int	sys_mkfifoat(struct thread *, struct mkfifoat_args *);
-int	sys_mknodat(struct thread *, struct mknodat_args *);
 int	sys_openat(struct thread *, struct openat_args *);
 int	sys_readlinkat(struct thread *, struct readlinkat_args *);
 int	sys_renameat(struct thread *, struct renameat_args *);
@@ -2101,6 +2094,7 @@ int	sys_getfsstat(struct thread *, struct getfsstat_args *);
 int	sys_statfs(struct thread *, struct statfs_args *);
 int	sys_fstatfs(struct thread *, struct fstatfs_args *);
 int	sys_fhstatfs(struct thread *, struct fhstatfs_args *);
+int	sys_mknodat(struct thread *, struct mknodat_args *);
 
 #ifdef COMPAT_43
 
@@ -2368,6 +2362,11 @@ int	freebsd7_shmctl(struct thread *, struct freebsd7_shmctl_args *);
 
 #ifdef COMPAT_FREEBSD9
 
+struct freebsd9_mknod_args {
+	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
+	char mode_l_[PADL_(int)]; int mode; char mode_r_[PADR_(int)];
+	char dev_l_[PADL_(int)]; int dev; char dev_r_[PADR_(int)];
+};
 struct freebsd9_stat_args {
 	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
 	char ub_l_[PADL_(struct freebsd9_stat *)]; struct freebsd9_stat * ub; char ub_r_[PADR_(struct freebsd9_stat *)];
@@ -2430,6 +2429,13 @@ struct freebsd9_fstatat_args {
 	char buf_l_[PADL_(struct freebsd9_stat *)]; struct freebsd9_stat * buf; char buf_r_[PADR_(struct freebsd9_stat *)];
 	char flag_l_[PADL_(int)]; int flag; char flag_r_[PADR_(int)];
 };
+struct freebsd9_mknodat_args {
+	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
+	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
+	char mode_l_[PADL_(mode_t)]; mode_t mode; char mode_r_[PADR_(mode_t)];
+	char dev_l_[PADL_(uint32_t)]; uint32_t dev; char dev_r_[PADR_(uint32_t)];
+};
+int	freebsd9_mknod(struct thread *, struct freebsd9_mknod_args *);
 int	freebsd9_stat(struct thread *, struct freebsd9_stat_args *);
 int	freebsd9_fstat(struct thread *, struct freebsd9_fstat_args *);
 int	freebsd9_lstat(struct thread *, struct freebsd9_lstat_args *);
@@ -2444,6 +2450,7 @@ int	freebsd9_statfs(struct thread *, struct freebsd9_statfs_args *);
 int	freebsd9_fstatfs(struct thread *, struct freebsd9_fstatfs_args *);
 int	freebsd9_fhstatfs(struct thread *, struct freebsd9_fhstatfs_args *);
 int	freebsd9_fstatat(struct thread *, struct freebsd9_fstatat_args *);
+int	freebsd9_mknodat(struct thread *, struct freebsd9_mknodat_args *);
 
 #endif /* COMPAT_FREEBSD9 */
 
@@ -2460,7 +2467,7 @@ int	freebsd9_fstatat(struct thread *, struct freebsd9_fstatat_args *);
 #define	SYS_AUE_unlink	AUE_UNLINK
 #define	SYS_AUE_chdir	AUE_CHDIR
 #define	SYS_AUE_fchdir	AUE_FCHDIR
-#define	SYS_AUE_mknod	AUE_MKNOD
+#define	SYS_AUE_freebsd9_mknod	AUE_MKNOD
 #define	SYS_AUE_chmod	AUE_CHMOD
 #define	SYS_AUE_chown	AUE_CHOWN
 #define	SYS_AUE_break	AUE_NULL
@@ -2841,7 +2848,7 @@ int	freebsd9_fstatat(struct thread *, struct freebsd9_fstatat_args *);
 #define	SYS_AUE_linkat	AUE_LINKAT
 #define	SYS_AUE_mkdirat	AUE_MKDIRAT
 #define	SYS_AUE_mkfifoat	AUE_MKFIFOAT
-#define	SYS_AUE_mknodat	AUE_MKNODAT
+#define	SYS_AUE_freebsd9_mknodat	AUE_MKNODAT
 #define	SYS_AUE_openat	AUE_OPENAT_RWTC
 #define	SYS_AUE_readlinkat	AUE_READLINKAT
 #define	SYS_AUE_renameat	AUE_RENAMEAT
@@ -2885,6 +2892,7 @@ int	freebsd9_fstatat(struct thread *, struct freebsd9_fstatat_args *);
 #define	SYS_AUE_statfs	AUE_STATFS
 #define	SYS_AUE_fstatfs	AUE_FSTATFS
 #define	SYS_AUE_fhstatfs	AUE_FHSTATFS
+#define	SYS_AUE_mknodat	AUE_MKNODAT
 
 #undef PAD_
 #undef PADL_

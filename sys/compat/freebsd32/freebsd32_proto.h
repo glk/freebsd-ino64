@@ -953,6 +953,11 @@ int	freebsd7_freebsd32_shmctl(struct thread *, struct freebsd7_freebsd32_shmctl_
 #if !defined(PAD64_REQUIRED) && defined(__powerpc__)
 #define PAD64_REQUIRED
 #endif
+struct freebsd9_freebsd32_mknod_args {
+	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
+	char mode_l_[PADL_(int)]; int mode; char mode_r_[PADR_(int)];
+	char dev_l_[PADL_(int)]; int dev; char dev_r_[PADR_(int)];
+};
 struct freebsd9_freebsd32_stat_args {
 	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
 	char ub_l_[PADL_(struct freebsd9_stat32 *)]; struct freebsd9_stat32 * ub; char ub_r_[PADR_(struct freebsd9_stat32 *)];
@@ -992,6 +997,13 @@ struct freebsd9_freebsd32_fstatat_args {
 	char buf_l_[PADL_(struct freebsd9_stat32 *)]; struct freebsd9_stat32 * buf; char buf_r_[PADR_(struct freebsd9_stat32 *)];
 	char flag_l_[PADL_(int)]; int flag; char flag_r_[PADR_(int)];
 };
+struct freebsd9_freebsd32_mknodat_args {
+	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
+	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
+	char mode_l_[PADL_(mode_t)]; mode_t mode; char mode_r_[PADR_(mode_t)];
+	char dev_l_[PADL_(uint32_t)]; uint32_t dev; char dev_r_[PADR_(uint32_t)];
+};
+int	freebsd9_freebsd32_mknod(struct thread *, struct freebsd9_freebsd32_mknod_args *);
 int	freebsd9_freebsd32_stat(struct thread *, struct freebsd9_freebsd32_stat_args *);
 int	freebsd9_freebsd32_fstat(struct thread *, struct freebsd9_freebsd32_fstat_args *);
 int	freebsd9_freebsd32_lstat(struct thread *, struct freebsd9_freebsd32_lstat_args *);
@@ -999,10 +1011,12 @@ int	freebsd9_freebsd32_getdirentries(struct thread *, struct freebsd9_freebsd32_
 int	freebsd9_freebsd32_getdents(struct thread *, struct freebsd9_freebsd32_getdents_args *);
 int	freebsd9_freebsd32_fhstat(struct thread *, struct freebsd9_freebsd32_fhstat_args *);
 int	freebsd9_freebsd32_fstatat(struct thread *, struct freebsd9_freebsd32_fstatat_args *);
+int	freebsd9_freebsd32_mknodat(struct thread *, struct freebsd9_freebsd32_mknodat_args *);
 
 #endif /* COMPAT_FREEBSD9 */
 
 #define	FREEBSD32_SYS_AUE_freebsd32_wait4	AUE_WAIT4
+#define	FREEBSD32_SYS_AUE_freebsd9_freebsd32_mknod	AUE_MKNOD
 #define	FREEBSD32_SYS_AUE_freebsd4_freebsd32_getfsstat	AUE_GETFSSTAT
 #define	FREEBSD32_SYS_AUE_ofreebsd32_lseek	AUE_LSEEK
 #define	FREEBSD32_SYS_AUE_freebsd32_recvmsg	AUE_RECVMSG
@@ -1129,6 +1143,7 @@ int	freebsd9_freebsd32_fstatat(struct thread *, struct freebsd9_freebsd32_fstata
 #define	FREEBSD32_SYS_AUE_freebsd32_fexecve	AUE_FEXECVE
 #define	FREEBSD32_SYS_AUE_freebsd9_freebsd32_fstatat	AUE_FSTATAT
 #define	FREEBSD32_SYS_AUE_freebsd32_futimesat	AUE_FUTIMESAT
+#define	FREEBSD32_SYS_AUE_freebsd9_freebsd32_mknodat	AUE_MKNODAT
 #define	FREEBSD32_SYS_AUE_freebsd32_jail_get	AUE_NULL
 #define	FREEBSD32_SYS_AUE_freebsd32_jail_set	AUE_NULL
 #define	FREEBSD32_SYS_AUE_freebsd32_semctl	AUE_SEMCTL
