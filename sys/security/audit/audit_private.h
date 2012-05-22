@@ -99,8 +99,8 @@ struct vnode_au_info {
 	uid_t	vn_uid;
 	gid_t	vn_gid;
 	dev_t	vn_dev;
-	long	vn_fsid;
-	long	vn_fileid;
+	dev_t	vn_fsid;
+	ino_t	vn_fileid;
 	long	vn_gen;
 };
 
