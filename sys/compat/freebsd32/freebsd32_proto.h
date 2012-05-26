@@ -564,21 +564,9 @@ struct freebsd32_posix_fadvise_args {
 	char len2_l_[PADL_(uint32_t)]; uint32_t len2; char len2_r_[PADR_(uint32_t)];
 	char advice_l_[PADL_(int)]; int advice; char advice_r_[PADR_(int)];
 };
-struct freebsd32_stat_args {
-	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
-	char ub_l_[PADL_(struct stat32 *)]; struct stat32 * ub; char ub_r_[PADR_(struct stat32 *)];
-};
 struct freebsd32_fstat_args {
 	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
 	char ub_l_[PADL_(struct stat32 *)]; struct stat32 * ub; char ub_r_[PADR_(struct stat32 *)];
-};
-struct freebsd32_lstat_args {
-	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
-	char ub_l_[PADL_(struct stat32 *)]; struct stat32 * ub; char ub_r_[PADR_(struct stat32 *)];
-};
-struct freebsd32_fhstat_args {
-	char u_fhp_l_[PADL_(const struct fhandle *)]; const struct fhandle * u_fhp; char u_fhp_r_[PADR_(const struct fhandle *)];
-	char sb_l_[PADL_(struct stat32 *)]; struct stat32 * sb; char sb_r_[PADR_(struct stat32 *)];
 };
 struct freebsd32_fstatat_args {
 	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
@@ -586,11 +574,9 @@ struct freebsd32_fstatat_args {
 	char buf_l_[PADL_(struct stat32 *)]; struct stat32 * buf; char buf_r_[PADR_(struct stat32 *)];
 	char flag_l_[PADL_(int)]; int flag; char flag_r_[PADR_(int)];
 };
-struct freebsd32_getdirentries_args {
-	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
-	char buf_l_[PADL_(char *)]; char * buf; char buf_r_[PADR_(char *)];
-	char count_l_[PADL_(u_int)]; u_int count; char count_r_[PADR_(u_int)];
-	char basep_l_[PADL_(int32_t *)]; int32_t * basep; char basep_r_[PADR_(int32_t *)];
+struct freebsd32_fhstat_args {
+	char u_fhp_l_[PADL_(const struct fhandle *)]; const struct fhandle * u_fhp; char u_fhp_r_[PADR_(const struct fhandle *)];
+	char sb_l_[PADL_(struct stat32 *)]; struct stat32 * sb; char sb_r_[PADR_(struct stat32 *)];
 };
 #if !defined(PAD64_REQUIRED) && defined(__powerpc__)
 #define PAD64_REQUIRED
@@ -698,12 +684,9 @@ int	freebsd32_shmctl(struct thread *, struct freebsd32_shmctl_args *);
 int	freebsd32_pselect(struct thread *, struct freebsd32_pselect_args *);
 int	freebsd32_posix_fallocate(struct thread *, struct freebsd32_posix_fallocate_args *);
 int	freebsd32_posix_fadvise(struct thread *, struct freebsd32_posix_fadvise_args *);
-int	freebsd32_stat(struct thread *, struct freebsd32_stat_args *);
 int	freebsd32_fstat(struct thread *, struct freebsd32_fstat_args *);
-int	freebsd32_lstat(struct thread *, struct freebsd32_lstat_args *);
-int	freebsd32_fhstat(struct thread *, struct freebsd32_fhstat_args *);
 int	freebsd32_fstatat(struct thread *, struct freebsd32_fstatat_args *);
-int	freebsd32_getdirentries(struct thread *, struct freebsd32_getdirentries_args *);
+int	freebsd32_fhstat(struct thread *, struct freebsd32_fhstat_args *);
 
 #ifdef COMPAT_43
 
@@ -979,7 +962,7 @@ struct freebsd9_freebsd32_getdirentries_args {
 struct freebsd9_freebsd32_getdents_args {
 	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
 	char buf_l_[PADL_(char *)]; char * buf; char buf_r_[PADR_(char *)];
-	char count_l_[PADL_(size_t)]; size_t count; char count_r_[PADR_(size_t)];
+	char count_l_[PADL_(int)]; int count; char count_r_[PADR_(int)];
 };
 struct freebsd9_freebsd32_fhstat_args {
 	char u_fhp_l_[PADL_(const struct fhandle *)]; const struct fhandle * u_fhp; char u_fhp_r_[PADR_(const struct fhandle *)];
@@ -1152,12 +1135,9 @@ int	freebsd9_freebsd32_mknodat(struct thread *, struct freebsd9_freebsd32_mknoda
 #define	FREEBSD32_SYS_AUE_freebsd32_pselect	AUE_SELECT
 #define	FREEBSD32_SYS_AUE_freebsd32_posix_fallocate	AUE_NULL
 #define	FREEBSD32_SYS_AUE_freebsd32_posix_fadvise	AUE_NULL
-#define	FREEBSD32_SYS_AUE_freebsd32_stat	AUE_STAT
 #define	FREEBSD32_SYS_AUE_freebsd32_fstat	AUE_FSTAT
-#define	FREEBSD32_SYS_AUE_freebsd32_lstat	AUE_LSTAT
-#define	FREEBSD32_SYS_AUE_freebsd32_fhstat	AUE_FHSTAT
 #define	FREEBSD32_SYS_AUE_freebsd32_fstatat	AUE_FSTATAT
-#define	FREEBSD32_SYS_AUE_freebsd32_getdirentries	AUE_GETDIRENTRIES
+#define	FREEBSD32_SYS_AUE_freebsd32_fhstat	AUE_FHSTAT
 
 #undef PAD_
 #undef PADL_

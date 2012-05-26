@@ -396,15 +396,12 @@ MIASM =  \
 	rctl_remove_rule.o \
 	posix_fallocate.o \
 	posix_fadvise.o \
-	stat.o \
 	fstat.o \
-	lstat.o \
-	fhstat.o \
 	fstatat.o \
-	getdents.o \
+	fhstat.o \
 	getdirentries.o \
+	mknodat.o \
 	getfsstat.o \
 	statfs.o \
 	fstatfs.o \
-	fhstatfs.o \
-	mknodat.o
+	fhstatfs.o

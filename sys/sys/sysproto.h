@@ -1666,20 +1666,8 @@ struct posix_fadvise_args {
 	char len_l_[PADL_(off_t)]; off_t len; char len_r_[PADR_(off_t)];
 	char advice_l_[PADL_(int)]; int advice; char advice_r_[PADR_(int)];
 };
-struct stat_args {
-	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
-	char ub_l_[PADL_(struct stat *)]; struct stat * ub; char ub_r_[PADR_(struct stat *)];
-};
 struct fstat_args {
 	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
-	char sb_l_[PADL_(struct stat *)]; struct stat * sb; char sb_r_[PADR_(struct stat *)];
-};
-struct lstat_args {
-	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
-	char ub_l_[PADL_(struct stat *)]; struct stat * ub; char ub_r_[PADR_(struct stat *)];
-};
-struct fhstat_args {
-	char u_fhp_l_[PADL_(const struct fhandle *)]; const struct fhandle * u_fhp; char u_fhp_r_[PADR_(const struct fhandle *)];
 	char sb_l_[PADL_(struct stat *)]; struct stat * sb; char sb_r_[PADR_(struct stat *)];
 };
 struct fstatat_args {
@@ -1688,16 +1676,21 @@ struct fstatat_args {
 	char buf_l_[PADL_(struct stat *)]; struct stat * buf; char buf_r_[PADR_(struct stat *)];
 	char flag_l_[PADL_(int)]; int flag; char flag_r_[PADR_(int)];
 };
-struct getdents_args {
-	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
-	char buf_l_[PADL_(char *)]; char * buf; char buf_r_[PADR_(char *)];
-	char count_l_[PADL_(size_t)]; size_t count; char count_r_[PADR_(size_t)];
+struct fhstat_args {
+	char u_fhp_l_[PADL_(const struct fhandle *)]; const struct fhandle * u_fhp; char u_fhp_r_[PADR_(const struct fhandle *)];
+	char sb_l_[PADL_(struct stat *)]; struct stat * sb; char sb_r_[PADR_(struct stat *)];
 };
 struct getdirentries_args {
 	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
 	char buf_l_[PADL_(char *)]; char * buf; char buf_r_[PADR_(char *)];
-	char count_l_[PADL_(u_int)]; u_int count; char count_r_[PADR_(u_int)];
-	char basep_l_[PADL_(long *)]; long * basep; char basep_r_[PADR_(long *)];
+	char count_l_[PADL_(size_t)]; size_t count; char count_r_[PADR_(size_t)];
+	char basep_l_[PADL_(off_t *)]; off_t * basep; char basep_r_[PADR_(off_t *)];
+};
+struct mknodat_args {
+	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
+	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
+	char mode_l_[PADL_(mode_t)]; mode_t mode; char mode_r_[PADR_(mode_t)];
+	char dev_l_[PADL_(dev_t)]; dev_t dev; char dev_r_[PADR_(dev_t)];
 };
 struct getfsstat_args {
 	char buf_l_[PADL_(struct statfs *)]; struct statfs * buf; char buf_r_[PADR_(struct statfs *)];
@@ -1715,12 +1708,6 @@ struct fstatfs_args {
 struct fhstatfs_args {
 	char u_fhp_l_[PADL_(const struct fhandle *)]; const struct fhandle * u_fhp; char u_fhp_r_[PADR_(const struct fhandle *)];
 	char buf_l_[PADL_(struct statfs *)]; struct statfs * buf; char buf_r_[PADR_(struct statfs *)];
-};
-struct mknodat_args {
-	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
-	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
-	char mode_l_[PADL_(mode_t)]; mode_t mode; char mode_r_[PADR_(mode_t)];
-	char dev_l_[PADL_(dev_t)]; dev_t dev; char dev_r_[PADR_(dev_t)];
 };
 int	nosys(struct thread *, struct nosys_args *);
 void	sys_sys_exit(struct thread *, struct sys_exit_args *);
@@ -2083,18 +2070,15 @@ int	sys_rctl_add_rule(struct thread *, struct rctl_add_rule_args *);
 int	sys_rctl_remove_rule(struct thread *, struct rctl_remove_rule_args *);
 int	sys_posix_fallocate(struct thread *, struct posix_fallocate_args *);
 int	sys_posix_fadvise(struct thread *, struct posix_fadvise_args *);
-int	sys_stat(struct thread *, struct stat_args *);
 int	sys_fstat(struct thread *, struct fstat_args *);
-int	sys_lstat(struct thread *, struct lstat_args *);
-int	sys_fhstat(struct thread *, struct fhstat_args *);
 int	sys_fstatat(struct thread *, struct fstatat_args *);
-int	sys_getdents(struct thread *, struct getdents_args *);
+int	sys_fhstat(struct thread *, struct fhstat_args *);
 int	sys_getdirentries(struct thread *, struct getdirentries_args *);
+int	sys_mknodat(struct thread *, struct mknodat_args *);
 int	sys_getfsstat(struct thread *, struct getfsstat_args *);
 int	sys_statfs(struct thread *, struct statfs_args *);
 int	sys_fstatfs(struct thread *, struct fstatfs_args *);
 int	sys_fhstatfs(struct thread *, struct fhstatfs_args *);
-int	sys_mknodat(struct thread *, struct mknodat_args *);
 
 #ifdef COMPAT_43
 
@@ -2388,7 +2372,7 @@ struct freebsd9_getdirentries_args {
 struct freebsd9_getdents_args {
 	char fd_l_[PADL_(int)]; int fd; char fd_r_[PADR_(int)];
 	char buf_l_[PADL_(char *)]; char * buf; char buf_r_[PADR_(char *)];
-	char count_l_[PADL_(size_t)]; size_t count; char count_r_[PADR_(size_t)];
+	char count_l_[PADL_(int)]; int count; char count_r_[PADR_(int)];
 };
 struct freebsd9_nstat_args {
 	char path_l_[PADL_(char *)]; char * path; char path_r_[PADR_(char *)];
@@ -2881,18 +2865,15 @@ int	freebsd9_mknodat(struct thread *, struct freebsd9_mknodat_args *);
 #define	SYS_AUE_rctl_remove_rule	AUE_NULL
 #define	SYS_AUE_posix_fallocate	AUE_NULL
 #define	SYS_AUE_posix_fadvise	AUE_NULL
-#define	SYS_AUE_stat	AUE_STAT
 #define	SYS_AUE_fstat	AUE_FSTAT
-#define	SYS_AUE_lstat	AUE_LSTAT
-#define	SYS_AUE_fhstat	AUE_FHSTAT
 #define	SYS_AUE_fstatat	AUE_FSTATAT
-#define	SYS_AUE_getdents	AUE_O_GETDENTS
+#define	SYS_AUE_fhstat	AUE_FHSTAT
 #define	SYS_AUE_getdirentries	AUE_GETDIRENTRIES
+#define	SYS_AUE_mknodat	AUE_MKNODAT
 #define	SYS_AUE_getfsstat	AUE_GETFSSTAT
 #define	SYS_AUE_statfs	AUE_STATFS
 #define	SYS_AUE_fstatfs	AUE_FSTATFS
 #define	SYS_AUE_fhstatfs	AUE_FHSTATFS
-#define	SYS_AUE_mknodat	AUE_MKNODAT
 
 #undef PAD_
 #undef PADL_
