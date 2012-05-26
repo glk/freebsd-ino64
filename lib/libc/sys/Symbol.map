@@ -579,8 +579,6 @@ FBSDprivate_1.0 {
 	__sys_getauid;
 	_getcontext;
 	__sys_getcontext;
-	_getdents;
-	__sys_getdents;
 	_getdirentries;
 	__sys_getdirentries;
 	_getdtablesize;
@@ -709,8 +707,6 @@ FBSDprivate_1.0 {
 	__sys_lio_listio;
 	_listen;
 	__sys_listen;
-	_lstat;
-	__sys_lstat;
 	_lutimes;
 	__sys_lutimes;
 	_mac_syscall;
@@ -940,8 +936,6 @@ FBSDprivate_1.0 {
 	__sys_socket;
 	_socketpair;
 	__sys_socketpair;
-	_stat;
-	__sys_stat;
 	_statfs;
 	__sys_statfs;
 	_swapcontext;
